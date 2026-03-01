@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "HydroMorph",
+    "slug": "hydromorph",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0d1117",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0d1117"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mmrech.hydromorph"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0d1117"
+      },
+      "package": "com.mmrech.hydromorph"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-document-picker"
+    ],
+    "description": "Hydrocephalus morphometrics pipeline — Evans Index, Callosal Angle, Ventricle Volume from NIfTI head CT scans.",
+    "author": "Matheus Machado Rech"
+  }
+}
