@@ -1,0 +1,6 @@
+# Ignore everything outside the project
+.docker-conf/
+Documents/
+*.log
+.git/
+node_modules/

@@ -1,0 +1,37 @@
+# Build HydroMorph React Native with Expo EAS
+# Push to main → builds Android APK + iOS simulator build
+# Requires: EXPO_TOKEN secret (https://expo.dev/accounts/[you]/settings/access-tokens)
+name: Build Mobile Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [android, ios]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Expo & EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build ${{ matrix.platform }}
+        run: eas build --platform ${{ matrix.platform }} --profile preview --non-interactive
