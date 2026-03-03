@@ -12,3 +12,5 @@ web-build/
 .env
 .env.*
 hydro_ci_rn/node_modules/
+.playwright-mcp/
+*.png
