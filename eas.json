@@ -26,11 +26,6 @@
   },
   "submit": {
     "production": {
-      "ios": {
-        "appleId": "matheus.rech@icloud.com",
-        "ascAppId": "",
-        "appleTeamId": ""
-      },
       "android": {
         "track": "internal",
         "releaseStatus": "draft"
