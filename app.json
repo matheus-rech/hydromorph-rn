@@ -17,14 +17,19 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mmrech.hydromorph"
+      "bundleIdentifier": "com.mmrech.hydromorph",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0d1117",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "package": "com.mmrech.hydromorph"
+      "package": "com.mmrech.hydromorph",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png",
