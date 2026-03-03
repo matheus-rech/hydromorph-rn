@@ -67,10 +67,20 @@ asyncio.run(main())
 ```go
 ctx := context.Background()
 client := copilot.NewClient(nil)
-_ = client.Start(ctx)
+if err := client.Start(ctx); err != nil {
+    log.Fatalf("Failed to start client: %v", err)
+}
 defer client.Stop()
-session, _ := client.CreateSession(ctx, &copilot.SessionConfig{Model: "gpt-4.1"})
-response, _ := session.SendAndWait(ctx, copilot.MessageOptions{Prompt: "Hello!"})
+
+session, err := client.CreateSession(ctx, &copilot.SessionConfig{Model: "gpt-4.1"})
+if err != nil {
+    log.Fatalf("Failed to create session: %v", err)
+}
+
+response, err := session.SendAndWait(ctx, copilot.MessageOptions{Prompt: "Hello!"})
+if err != nil {
+    log.Fatalf("Failed to send message: %v", err)
+}
 fmt.Println(*response.Data.Content)
 ```
 
