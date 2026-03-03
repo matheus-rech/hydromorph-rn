@@ -162,8 +162,11 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     throw new Error(`Gradio API request failed for ${modelId}: ${err.message}`);
   }
 
-  // 5. Derive 3D mask from classical mask with opening (same perturbation
-  //    strategy as SAM3 mock — conservative, smoother boundaries)
+  // 5. Temporary: derive a 3D mask from the classical mask with opening.
+  // TODO: Replace for Gradio-backed models (currently SAM3) once endpoint
+  // returns a volumetric mask payload.
+  //    Current Gradio integration returns a segmented image URL, not a
+  //    volumetric mask payload, so this keeps downstream metrics consistent.
   const mask = opening3D(classicalMask, shape, 1);
 
   // Count voxels

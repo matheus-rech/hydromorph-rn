@@ -56,7 +56,7 @@ const MODEL_CONFIGS = [
     description: 'YOLO-based volumetric segmentation — fast, blobby output',
     isLocal: false,
     provider: 'api',
-    endpoint: '',
+    endpoint: '', // TODO: set real YOLOvx deployment endpoint
     fallbackToMock: false,
   },
 ];
@@ -81,10 +81,6 @@ export function getAllModelConfigs() {
 
 export function getApiModels() {
   return MODEL_CONFIGS.filter((m) => m.provider === 'api');
-}
-
-export function getMockModels() {
-  return [];
 }
 
 export function getProviderType(modelId) {
