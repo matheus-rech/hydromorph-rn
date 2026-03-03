@@ -41,10 +41,10 @@ const MODEL_CONFIGS = [
     shortName: 'SAM3',
     color: colors.purple,    // #bc8cff — purple
     colorRgb: { r: 188, g: 140, b: 255 },
-    description: 'Segment Anything Model 3 — conservative, smoother boundaries',
+    description: 'NeuroSAM3 — text-prompted medical image segmentation',
     isLocal: false,
     provider: 'api',
-    endpoint: '',
+    endpoint: 'https://mmrech-neurosam3.hf.space',
     fallbackToMock: true,
   },
   {

@@ -20,11 +20,15 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { colors, spacing, radius, typography } from '../theme';
 import { setApiConfig, isCloudEnabled } from '../config/apiConfig';
+import { checkHealth } from '../api/GradioClient';
+import { getApiModels } from '../models/ModelRegistry';
 
 export default function UploadScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [cloudMode, setCloudMode] = useState(isCloudEnabled());
+  const [connectionStatus, setConnectionStatus] = useState(null); // null | 'testing' | 'ok' | 'slow' | 'error'
+  const [connectionMsg, setConnectionMsg] = useState('');
 
   // ── File picker ────────────────────────────────────────────────────────────
 
@@ -89,6 +93,42 @@ export default function UploadScreen({ navigation }) {
     const newValue = !cloudMode;
     setCloudMode(newValue);
     setApiConfig({ cloudEnabled: newValue });
+    if (newValue) {
+      testConnection();
+    } else {
+      setConnectionStatus(null);
+      setConnectionMsg('');
+    }
+  }
+
+  async function testConnection() {
+    const apiModels = getApiModels();
+    const modelWithEndpoint = apiModels.find((m) => m.endpoint);
+    if (!modelWithEndpoint) {
+      setConnectionStatus('error');
+      setConnectionMsg('No API endpoint configured');
+      return;
+    }
+
+    setConnectionStatus('testing');
+    setConnectionMsg(`Checking ${modelWithEndpoint.name}...`);
+
+    const start = Date.now();
+    const result = await checkHealth(modelWithEndpoint.endpoint, 15000);
+    const elapsed = Date.now() - start;
+
+    if (result.ok) {
+      if (elapsed > 5000) {
+        setConnectionStatus('slow');
+        setConnectionMsg(`${modelWithEndpoint.name} — cold start (~${Math.ceil(elapsed / 1000)}s)`);
+      } else {
+        setConnectionStatus('ok');
+        setConnectionMsg(`${modelWithEndpoint.name} — connected`);
+      }
+    } else {
+      setConnectionStatus('error');
+      setConnectionMsg(`${modelWithEndpoint.name} — ${result.status}`);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -172,10 +212,39 @@ export default function UploadScreen({ navigation }) {
         </View>
         {cloudMode && (
           <Text style={styles.cloudWarning}>
-            ⚠ Volume data will be transmitted to cloud servers
+            ⚠ Anonymized slice data sent to HuggingFace Spaces
           </Text>
         )}
       </TouchableOpacity>
+
+      {/* Connection status (shown when cloud mode is ON) */}
+      {cloudMode && connectionStatus && (
+        <View style={[
+          styles.connectionStatus,
+          connectionStatus === 'ok' && styles.connectionOk,
+          connectionStatus === 'slow' && styles.connectionSlow,
+          connectionStatus === 'error' && styles.connectionError,
+          connectionStatus === 'testing' && styles.connectionTesting,
+        ]}>
+          <Text style={styles.connectionDot}>
+            {connectionStatus === 'ok' ? '●' : connectionStatus === 'slow' ? '●' : connectionStatus === 'error' ? '●' : '◌'}
+          </Text>
+          <Text style={[
+            styles.connectionText,
+            connectionStatus === 'ok' && { color: colors.green },
+            connectionStatus === 'slow' && { color: colors.yellow },
+            connectionStatus === 'error' && { color: colors.red },
+            connectionStatus === 'testing' && { color: colors.muted },
+          ]}>
+            {connectionMsg}
+          </Text>
+          {connectionStatus !== 'testing' && (
+            <TouchableOpacity onPress={testConnection} activeOpacity={0.7}>
+              <Text style={styles.retestText}>Retest</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* Sample data button */}
       <TouchableOpacity
@@ -422,6 +491,52 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.yellow,
     opacity: 0.8,
+  },
+
+  // Connection status
+  connectionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    maxWidth: 480,
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border2,
+  },
+  connectionOk: {
+    backgroundColor: 'rgba(63,185,80,0.06)',
+    borderColor: 'rgba(63,185,80,0.2)',
+  },
+  connectionSlow: {
+    backgroundColor: 'rgba(210,153,34,0.06)',
+    borderColor: 'rgba(210,153,34,0.2)',
+  },
+  connectionError: {
+    backgroundColor: 'rgba(248,81,73,0.06)',
+    borderColor: 'rgba(248,81,73,0.2)',
+  },
+  connectionTesting: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border2,
+  },
+  connectionDot: {
+    fontSize: 8,
+  },
+  connectionText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: colors.muted,
+  },
+  retestText: {
+    fontSize: 11,
+    color: colors.accent,
+    fontWeight: typography.medium,
   },
 
   // Sample button
