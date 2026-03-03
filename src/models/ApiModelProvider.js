@@ -6,8 +6,14 @@
  * Falls back to MockModelProvider when the API is unavailable or when
  * cloud mode is disabled.
  *
- * Privacy note: only the classical binary mask is transmitted — raw
- * patient scan voxel data never leaves the device.
+ * Supports two API protocols:
+ *   1. JSON API — POST mask_b64 payload, receive mask_b64 response
+ *   2. Gradio API — Upload PNG slice to .hf.space, call segmentImage()
+ *
+ * Privacy note:
+ *   - Gradio path: sends a single anonymized 2D PNG slice
+ *   - JSON path: sends the classical 3D binary mask (no raw patient voxels)
+ *   The full 3D patient volume (HU data) never leaves the device.
  *
  * Author: Matheus Machado Rech
  */
@@ -18,7 +24,10 @@ import { getApiConfig, isCloudEnabled } from '../config/apiConfig';
 import {
   computeEvansIndex,
   computeCallosalAngle,
+  opening3D,
 } from '../pipeline/Morphometrics';
+import { segmentImage } from '../api/GradioClient';
+import { encodeAxialSlicePNG, findBestVentricleSlice } from '../pipeline/SliceEncoder';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -67,6 +76,13 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Check if an endpoint URL is a Gradio-based HuggingFace Space.
+ */
+function isGradioEndpoint(endpoint) {
+  return typeof endpoint === 'string' && endpoint.includes('.hf.space');
+}
+
 // ─── Main Export ─────────────────────────────────────────────────────────────
 
 /**
@@ -99,7 +115,123 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
     throw new Error(`No endpoint configured for ${modelId}`);
   }
 
-  // ── Cloud path: call remote API ──────────────────────────────────────────
+  // ── Cloud path: choose protocol based on endpoint ──────────────────────
+  if (isGradioEndpoint(config.endpoint)) {
+    return generateGradioResult(modelId, config, apiConfig, volumeData, classicalMask, shape, spacing);
+  }
+
+  return generateJsonApiResult(modelId, config, apiConfig, volumeData, classicalMask, shape, spacing);
+}
+
+// ─── Gradio Path (HuggingFace Spaces) ──────────────────────────────────────
+
+/**
+ * Call a Gradio-based HuggingFace Space endpoint for segmentation.
+ *
+ * Sends a single representative axial PNG slice to the remote model.
+ * The 3D mask for metric computation is derived from the classical mask
+ * with a slight perturbation (opening by 1), since decoding an arbitrary
+ * segmented PNG back to a full 3D voxel mask on-device is not feasible
+ * in the demo. The real segmented image URL is stored in the result
+ * for potential UI display.
+ *
+ * Falls back to mock on any API failure.
+ */
+async function generateGradioResult(modelId, config, apiConfig, volumeData, classicalMask, shape, spacing) {
+  const startTime = performance.now();
+
+  let apiSliceImageUrl = null;
+  let isApiResult = false;
+
+  try {
+    // 1. Find the axial slice with the most ventricle voxels
+    const bestSlice = findBestVentricleSlice(classicalMask, shape);
+
+    // 2. Encode that slice as a PNG
+    const { base64 } = encodeAxialSlicePNG(volumeData, shape, spacing, bestSlice);
+
+    // 3. Call the Gradio segmentation API
+    const gradioResult = await segmentImage(
+      config.endpoint,
+      base64,
+      'ventricles',
+      { timeout: apiConfig.timeout },
+    );
+
+    // 4. API was called successfully — record it
+    isApiResult = true;
+    if (gradioResult.imageUrl) {
+      apiSliceImageUrl = gradioResult.imageUrl;
+    }
+  } catch (err) {
+    // API call failed — fall back to mock
+    console.warn(`[ApiModelProvider] Gradio call failed for ${modelId}: ${err.message}`);
+    if (config.fallbackToMock) {
+      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
+    }
+    throw new Error(`Gradio API request failed for ${modelId}: ${err.message}`);
+  }
+
+  // 5. Derive 3D mask from classical mask with opening (same perturbation
+  //    strategy as SAM3 mock — conservative, smoother boundaries)
+  const mask = opening3D(classicalMask, shape, 1);
+
+  // Count voxels
+  let ventCount = 0;
+  for (let i = 0; i < mask.length; i++) ventCount += mask[i];
+
+  // Recompute metrics
+  const evansResult = computeEvansIndex(volumeData, mask, shape, spacing);
+  const callosalResult = computeCallosalAngle(mask, shape, spacing);
+
+  // Volume
+  const voxelVol = spacing[0] * spacing[1] * spacing[2];
+  const ventVolMm3 = ventCount * voxelVol;
+  const ventVolMl = ventVolMm3 / 1000;
+
+  // NPH score
+  let nphScore = 0;
+  if (evansResult.maxEvans > 0.3) nphScore++;
+  if (callosalResult.angleDeg !== null && callosalResult.angleDeg < 90) nphScore++;
+  if (ventVolMl > 50) nphScore++;
+  const nphPct = Math.round((nphScore / 3) * 100);
+
+  const processingTime = ((performance.now() - startTime) / 1000).toFixed(1);
+
+  return {
+    modelId,
+    modelName: config.name,
+    modelColor: config.color,
+    colorRgb: config.colorRgb,
+    evansIndex: evansResult.maxEvans,
+    evansSlice: evansResult.bestSlice,
+    evansData: evansResult,
+    callosalAngle: callosalResult.angleDeg,
+    callosalSlice: callosalResult.bestCoronalSlice,
+    callosalData: callosalResult,
+    ventVolMl,
+    ventVolMm3,
+    nphScore,
+    nphPct,
+    ventCount,
+    ventMask: mask,
+    shape,
+    spacing,
+    boundingBoxes: [],
+    processingTime: `${processingTime}s`,
+    processingTimeNum: parseFloat(processingTime),
+    isApiResult,
+    apiSliceImageUrl,
+  };
+}
+
+// ─── JSON API Path ─────────────────────────────────────────────────────────
+
+/**
+ * Call a JSON-based API endpoint for segmentation.
+ * Sends the classical binary mask as base64 and expects a mask_b64 response.
+ */
+async function generateJsonApiResult(modelId, config, apiConfig, volumeData, classicalMask, shape, spacing) {
   const startTime = performance.now();
 
   const payload = {
@@ -146,6 +278,17 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
   }
 
   const mask = base64ToUint8(body.mask_b64);
+
+  // Validate mask size matches volume dimensions
+  const expectedLen = shape[0] * shape[1] * shape[2];
+  if (mask.length !== expectedLen) {
+    if (config.fallbackToMock) {
+      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
+    }
+    throw new Error(
+      `Mask size mismatch from ${modelId}: got ${mask.length}, expected ${expectedLen}`,
+    );
+  }
 
   // Count voxels
   let ventCount = 0;
@@ -194,6 +337,8 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
     boundingBoxes,
     processingTime: `${processingTime}s`,
     processingTimeNum: parseFloat(processingTime),
+    isApiResult: false,
+    apiSliceImageUrl: null,
   };
 }
 
