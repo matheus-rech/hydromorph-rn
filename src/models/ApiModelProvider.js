@@ -104,7 +104,10 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
   const apiConfig = getApiConfig();
 
   // ── Gate: cloud disabled or no endpoint ──────────────────────────────────
-  if (!isCloudEnabled() || !config.endpoint) {
+  if (!isCloudEnabled()) {
+    throw new Error('Cloud inference is disabled');
+  }
+  if (!config.endpoint) {
     throw new Error(`No endpoint configured for ${modelId}`);
   }
 
