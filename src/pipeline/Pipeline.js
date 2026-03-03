@@ -276,10 +276,27 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
     const config = getModelConfig(modelId);
 
     onProgress(stepIdx, `Running ${config.name}...`);
-    const result = await generateApiResult(modelId, data, ventMask, shape, spacing);
-    allResults[modelId] = result;
-
-    onProgress(stepIdx, `${config.name} complete`);
+    try {
+      const result = await generateApiResult(modelId, data, ventMask, shape, spacing);
+      allResults[modelId] = result;
+      onProgress(stepIdx, `${config.name} complete`);
+    } catch (error) {
+      // If an ML model fails (e.g., cloud mode disabled), record an error result
+      // but allow the rest of the pipeline to complete so classical results are preserved.
+      // eslint-disable-next-line no-console
+      console.warn(`ML model "${modelId}" failed in runMultiModelPipeline:`, error);
+      allResults[modelId] = {
+        modelId,
+        modelName: config.name,
+        modelColor: config.color,
+        colorRgb: config.colorRgb,
+        boundingBoxes: [],
+        processingTime: '—',
+        processingTimeNum: 0,
+        error: error && error.message ? error.message : 'Model execution failed',
+      };
+      onProgress(stepIdx, `${config.name} failed — continuing with other models`);
+    }
   }
 
   // Final comparison step
