@@ -14,3 +14,4 @@ web-build/
 hydro_ci_rn/node_modules/
 .playwright-mcp/
 *.png
+service-account*.json
