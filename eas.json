@@ -20,12 +20,16 @@
       },
       "ios": {
         "distribution": "store",
-        "autoIncrement": "buildNumber"
+        "autoIncrement": "buildNumber",
+        "image": "macos-sequoia-15.3-xcode-16.2"
       }
     }
   },
   "submit": {
     "production": {
+      "ios": {
+        "ascAppId": "6759966211"
+      },
       "android": {
         "track": "internal",
         "releaseStatus": "draft"
