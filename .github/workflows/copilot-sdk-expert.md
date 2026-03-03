@@ -15,8 +15,8 @@ on:
     events: [issues, pull_request_comment]
 permissions:
   contents: read
-  issues: read
-  pull-requests: read
+  issues: write
+  pull-requests: write
   actions: read
 tools:
   github:
