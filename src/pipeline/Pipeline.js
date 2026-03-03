@@ -36,13 +36,16 @@ export const PIPELINE_STEPS = [
   'Generating report',
 ];
 
-export const MULTI_MODEL_STEPS = [
-  ...PIPELINE_STEPS,
-  'Running MedSAM2',
-  'Running SAM3',
-  'Running YOLOvx',
-  'Comparing results',
-];
+export function getMultiModelSteps() {
+  return [
+    ...PIPELINE_STEPS,
+    ...getMLModelIds().map((modelId) => {
+      const config = getModelConfig(modelId);
+      return `Running ${config ? config.name : modelId}`;
+    }),
+    'Comparing results',
+  ];
+}
 
 // ─── Async delay helper ───────────────────────────────────────────────────────
 
@@ -300,7 +303,7 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
   }
 
   // Final comparison step
-  onProgress(MULTI_MODEL_STEPS.length - 1, 'All models complete — comparing results');
+  onProgress(getMultiModelSteps().length - 1, 'All models complete — comparing results');
   await delay(100);
 
   return allResults;

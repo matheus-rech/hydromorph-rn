@@ -22,7 +22,12 @@ import {
   Platform,
 } from 'react-native';
 import { colors, spacing, radius, typography } from '../theme';
-import { MULTI_MODEL_STEPS, loadNiftiFromUri, loadSampleVolume, runMultiModelPipeline } from '../pipeline/Pipeline';
+import {
+  getMultiModelSteps,
+  loadNiftiFromUri,
+  loadSampleVolume,
+  runMultiModelPipeline,
+} from '../pipeline/Pipeline';
 import { setResults as storeResults } from '../models/ResultsStore';
 import ProgressSteps from '../components/ProgressSteps';
 
@@ -137,7 +142,7 @@ export default function ProcessingScreen({ navigation, route }) {
 
       {/* Progress steps */}
       <ProgressSteps
-        steps={MULTI_MODEL_STEPS}
+        steps={getMultiModelSteps()}
         currentStep={currentStep}
         detail={stepDetail}
       />
