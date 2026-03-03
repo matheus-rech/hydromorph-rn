@@ -1,9 +1,9 @@
 /**
  * ModelRegistry — Configuration for all segmentation models
  *
- * Each model entry defines display properties and color assignments
- * used across the comparison UI. When real backends are added,
- * extend entries with provider/endpoint fields.
+ * Each model entry defines display properties, color assignments,
+ * and provider configuration used across the comparison UI.
+ * Provider types: 'local' (on-device), 'api' (remote), 'mock' (simulated).
  *
  * Author: Matheus Machado Rech
  */
@@ -19,6 +19,9 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 88, g: 166, b: 255 },
     description: 'HU thresholding + morphological filtering pipeline',
     isLocal: true,
+    provider: 'local',
+    endpoint: null,
+    fallbackToMock: false,
   },
   {
     id: 'medsam2',
@@ -28,6 +31,9 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 63, g: 185, b: 80 },
     description: 'Medical Segment Anything Model 2 — slight over-segmentation',
     isLocal: false,
+    provider: 'api',
+    endpoint: '',
+    fallbackToMock: true,
   },
   {
     id: 'sam3',
@@ -37,6 +43,9 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 188, g: 140, b: 255 },
     description: 'Segment Anything Model 3 — conservative, smoother boundaries',
     isLocal: false,
+    provider: 'api',
+    endpoint: '',
+    fallbackToMock: true,
   },
   {
     id: 'yolovx',
@@ -46,6 +55,9 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 255, g: 110, b: 64 },
     description: 'YOLO-based volumetric segmentation — fast, blobby output',
     isLocal: false,
+    provider: 'mock',
+    endpoint: null,
+    fallbackToMock: false,
   },
 ];
 
@@ -65,6 +77,19 @@ export function getMLModelIds() {
 
 export function getAllModelConfigs() {
   return MODEL_CONFIGS;
+}
+
+export function getApiModels() {
+  return MODEL_CONFIGS.filter((m) => m.provider === 'api');
+}
+
+export function getMockModels() {
+  return MODEL_CONFIGS.filter((m) => m.provider === 'mock');
+}
+
+export function getProviderType(modelId) {
+  const config = configMap.get(modelId);
+  return config ? config.provider : null;
 }
 
 export default MODEL_CONFIGS;

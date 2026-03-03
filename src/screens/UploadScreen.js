@@ -19,10 +19,12 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { colors, spacing, radius, typography } from '../theme';
+import { setApiConfig, isCloudEnabled } from '../config/apiConfig';
 
 export default function UploadScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cloudMode, setCloudMode] = useState(isCloudEnabled());
 
   // ── File picker ────────────────────────────────────────────────────────────
 
@@ -81,6 +83,14 @@ export default function UploadScreen({ navigation }) {
     setLoading(false);
   }
 
+  // ── Cloud mode toggle ─────────────────────────────────────────────────────
+
+  function handleCloudToggle() {
+    const newValue = !cloudMode;
+    setCloudMode(newValue);
+    setApiConfig({ cloudEnabled: newValue });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <ScrollView
@@ -135,6 +145,37 @@ export default function UploadScreen({ navigation }) {
           {' '}— All processing happens locally. Zero server uploads.
         </Text>
       </View>
+
+      {/* Cloud mode toggle */}
+      <TouchableOpacity
+        style={[styles.cloudToggle, cloudMode && styles.cloudToggleActive]}
+        onPress={handleCloudToggle}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cloudToggleHeader}>
+          <Text style={styles.cloudToggleIcon}>{cloudMode ? '☁' : '🔌'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cloudToggleTitle, cloudMode && styles.cloudToggleTitleActive]}>
+              {cloudMode ? 'Cloud Mode' : 'Demo Mode'}
+            </Text>
+            <Text style={[styles.cloudToggleDesc, cloudMode && styles.cloudToggleDescActive]}>
+              {cloudMode
+                ? 'Sends anonymized data to inference API'
+                : 'Using simulated model outputs'}
+            </Text>
+          </View>
+          <View style={[styles.cloudTogglePill, cloudMode && styles.cloudTogglePillActive]}>
+            <Text style={[styles.cloudTogglePillText, cloudMode && styles.cloudTogglePillTextActive]}>
+              {cloudMode ? 'ON' : 'OFF'}
+            </Text>
+          </View>
+        </View>
+        {cloudMode && (
+          <Text style={styles.cloudWarning}>
+            ⚠ Volume data will be transmitted to cloud servers
+          </Text>
+        )}
+      </TouchableOpacity>
 
       {/* Sample data button */}
       <TouchableOpacity
@@ -309,6 +350,74 @@ const styles = StyleSheet.create({
   },
   privacyBold: {
     fontWeight: typography.semibold,
+  },
+
+  // Cloud mode toggle
+  cloudToggle: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border2,
+    maxWidth: 480,
+    width: '100%',
+  },
+  cloudToggleActive: {
+    backgroundColor: 'rgba(210,153,34,0.08)',
+    borderColor: 'rgba(210,153,34,0.3)',
+  },
+  cloudToggleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cloudToggleIcon: {
+    fontSize: 16,
+  },
+  cloudToggleTitle: {
+    fontSize: 13,
+    fontWeight: typography.semibold,
+    color: colors.muted,
+  },
+  cloudToggleTitleActive: {
+    color: colors.yellow,
+  },
+  cloudToggleDesc: {
+    fontSize: 11,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  cloudToggleDescActive: {
+    color: 'rgba(210,153,34,0.8)',
+  },
+  cloudTogglePill: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  cloudTogglePillActive: {
+    backgroundColor: 'rgba(210,153,34,0.15)',
+    borderColor: 'rgba(210,153,34,0.4)',
+  },
+  cloudTogglePillText: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: typography.semibold,
+    color: colors.muted,
+  },
+  cloudTogglePillTextActive: {
+    color: colors.yellow,
+  },
+  cloudWarning: {
+    marginTop: 8,
+    fontSize: 11,
+    color: colors.yellow,
+    opacity: 0.8,
   },
 
   // Sample button

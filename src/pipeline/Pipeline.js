@@ -20,6 +20,7 @@ import {
   computeCallosalAngle,
 } from './Morphometrics';
 import { generateMockResult } from '../models/MockModelProvider';
+import { generateApiResult } from '../models/ApiModelProvider';
 import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
 
 // ─── Pipeline steps definition ────────────────────────────────────────────────
@@ -276,7 +277,9 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
     const config = getModelConfig(modelId);
 
     onProgress(stepIdx, `Running ${config.name}...`);
-    const result = await generateMockResult(modelId, data, ventMask, shape, spacing);
+    const result = config.provider === 'api'
+      ? await generateApiResult(modelId, data, ventMask, shape, spacing)
+      : await generateMockResult(modelId, data, ventMask, shape, spacing);
     allResults[modelId] = result;
 
     onProgress(stepIdx, `${config.name} complete`);
