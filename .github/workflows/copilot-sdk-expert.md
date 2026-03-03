@@ -46,6 +46,7 @@ safe-outputs:
       - enhancement
       - documentation
       - good-first-issue
+      - question
 timeout-minutes: 15
 network:
   allowed:
