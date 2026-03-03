@@ -10,10 +10,10 @@ import { colors, typography, radius, spacing } from '../theme';
 /**
  * @param {string}  value   - displayed value (e.g. "0.312")
  * @param {string}  label   - metric name (e.g. "Evans Index")
- * @param {string}  ref     - reference text (e.g. ">0.3 = abnormal")
+ * @param {string}  refText - reference text (e.g. ">0.3 = abnormal")
  * @param {string}  status  - 'normal' | 'abnormal' | 'moderate'
  */
-export default function MetricCard({ value, label, ref: refText, status = 'normal' }) {
+export default function MetricCard({ value, label, refText, status = 'normal' }) {
   const barColor = statusBarColor(status);
   const valueColor = statusValueColor(status);
 

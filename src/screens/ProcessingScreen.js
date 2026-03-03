@@ -19,7 +19,6 @@ import {
   ScrollView,
   Animated,
   Alert,
-  InteractionManager,
 } from 'react-native';
 import { colors, spacing, radius, typography } from '../theme';
 import { MULTI_MODEL_STEPS, loadNiftiFromUri, loadSampleVolume, runMultiModelPipeline } from '../pipeline/Pipeline';
@@ -53,10 +52,12 @@ export default function ProcessingScreen({ navigation, route }) {
     if (didRunRef.current) return;
     didRunRef.current = true;
 
-    // Defer pipeline start until after the screen transition animation
-    InteractionManager.runAfterInteractions(() => {
+    // Short delay to allow screen transition to render.
+    // Note: InteractionManager.runAfterInteractions() hangs on web
+    // when Animated.loop is active (loop counts as ongoing interaction).
+    setTimeout(() => {
       runPipelineAsync();
-    });
+    }, 300);
   }, []);
 
   async function runPipelineAsync() {

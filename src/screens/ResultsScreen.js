@@ -145,13 +145,13 @@ export default function ResultsScreen({ navigation, route }) {
           <MetricCard
             value={evansIndex !== undefined ? evansIndex.toFixed(3) : '—'}
             label="Evans Index"
-            ref=">0.3 = abnormal"
+            refText=">0.3 = abnormal"
             status={evansStatus}
           />
           <MetricCard
             value={callosalAngle !== null ? `${callosalAngle}°` : '—'}
             label="Callosal Angle"
-            ref="<90° = abnormal"
+            refText="<90° = abnormal"
             status={angleStatus}
           />
         </View>
@@ -159,13 +159,13 @@ export default function ResultsScreen({ navigation, route }) {
           <MetricCard
             value={`${ventVolMl.toFixed(1)} mL`}
             label="Ventricle Volume"
-            ref=">50 mL = abnormal"
+            refText=">50 mL = abnormal"
             status={volumeStatus}
           />
           <MetricCard
             value={`${nphPct}%`}
             label="NPH Probability"
-            ref={`${nphScore}/3 criteria`}
+            refText={`${nphScore}/3 criteria`}
             status={nphStatus}
           />
         </View>
