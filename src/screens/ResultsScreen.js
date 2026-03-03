@@ -19,6 +19,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { colors, spacing, radius, typography } from '../theme';
@@ -580,6 +581,17 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+    // On web, flex:1 alone does not constrain height — the parent div may
+    // grow to content size instead of viewport. Adding explicit height and
+    // overflow ensures the wrapper acts as a bounded scroll container host.
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
   errorScreen: {
     flex: 1,
@@ -670,6 +682,12 @@ const styles = StyleSheet.create({
   // Scroll content
   scrollView: {
     flex: 1,
+    // On web, react-native-web's ScrollView may not scroll if the flex
+    // parent doesn't constrain its height. Force overflow to enable scroll.
+    ...Platform.select({
+      web: { overflow: 'auto' },
+      default: {},
+    }),
   },
   content: {
     padding: spacing.xl,
@@ -678,6 +696,9 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     alignSelf: 'center',
     width: '100%',
+    // flexGrow ensures content pushes footer down on short content,
+    // while allowing scroll when content is taller than viewport.
+    flexGrow: 1,
   },
 
   // Metrics grid

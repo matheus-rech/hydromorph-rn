@@ -212,6 +212,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+    ...Platform.select({
+      web: { height: '100vh', maxHeight: '100vh' },
+      default: {},
+    }),
   },
   content: {
     flexGrow: 1,

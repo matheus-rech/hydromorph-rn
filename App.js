@@ -15,7 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 import UploadScreen     from './src/screens/UploadScreen';
 import ProcessingScreen from './src/screens/ProcessingScreen';
@@ -47,7 +47,7 @@ export default function App() {
             initialRouteName="Upload"
             screenOptions={{
               headerShown: false,
-              cardStyle: { backgroundColor: colors.bg },
+              cardStyle: { backgroundColor: colors.bg, flex: 1 },
               animationEnabled: true,
               gestureEnabled: true,
             }}
@@ -81,5 +81,16 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bg,
+    // On web, the root View must fill the viewport for flex:1 children to
+    // have a bounded height. Without this, ScrollViews expand to content
+    // height instead of scrolling.
+    ...Platform.select({
+      web: {
+        height: '100vh',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      },
+      default: {},
+    }),
   },
 });

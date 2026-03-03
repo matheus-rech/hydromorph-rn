@@ -19,6 +19,7 @@ import {
   ScrollView,
   Animated,
   Alert,
+  Platform,
 } from 'react-native';
 import { colors, spacing, radius, typography } from '../theme';
 import { MULTI_MODEL_STEPS, loadNiftiFromUri, loadSampleVolume, runMultiModelPipeline } from '../pipeline/Pipeline';
@@ -157,6 +158,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+    ...Platform.select({
+      web: { height: '100vh', maxHeight: '100vh' },
+      default: {},
+    }),
   },
   content: {
     flexGrow: 1,
