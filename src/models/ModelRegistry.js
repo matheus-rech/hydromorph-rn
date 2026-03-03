@@ -3,7 +3,7 @@
  *
  * Each model entry defines display properties, color assignments,
  * and provider configuration used across the comparison UI.
- * Provider types: 'local' (on-device), 'api' (remote), 'mock' (simulated).
+ * Provider types: 'local' (on-device), 'api' (remote).
  *
  * Author: Matheus Machado Rech
  */
@@ -33,7 +33,7 @@ const MODEL_CONFIGS = [
     isLocal: false,
     provider: 'api',
     endpoint: '',
-    fallbackToMock: true,
+    fallbackToMock: false,
   },
   {
     id: 'sam3',
@@ -45,7 +45,7 @@ const MODEL_CONFIGS = [
     isLocal: false,
     provider: 'api',
     endpoint: 'https://mmrech-neurosam3.hf.space',
-    fallbackToMock: true,
+    fallbackToMock: false,
   },
   {
     id: 'yolovx',
@@ -55,8 +55,8 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 255, g: 110, b: 64 },
     description: 'YOLO-based volumetric segmentation — fast, blobby output',
     isLocal: false,
-    provider: 'mock',
-    endpoint: null,
+    provider: 'api',
+    endpoint: '',
     fallbackToMock: false,
   },
 ];
@@ -84,7 +84,7 @@ export function getApiModels() {
 }
 
 export function getMockModels() {
-  return MODEL_CONFIGS.filter((m) => m.provider === 'mock');
+  return [];
 }
 
 export function getProviderType(modelId) {

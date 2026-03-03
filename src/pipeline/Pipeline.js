@@ -19,7 +19,6 @@ import {
   computeEvansIndex,
   computeCallosalAngle,
 } from './Morphometrics';
-import { generateMockResult } from '../models/MockModelProvider';
 import { generateApiResult } from '../models/ApiModelProvider';
 import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
 
@@ -246,7 +245,7 @@ export async function runPipeline(volume, onProgress = () => {}) {
 // ─── Multi-Model Pipeline ─────────────────────────────────────────────────────
 
 /**
- * Run classical pipeline + all ML model mocks.
+ * Run classical pipeline + all ML models.
  * Returns { classical, medsam2, sam3, yolovx } with identical result shapes.
  */
 export async function runMultiModelPipeline(volume, onProgress = () => {}) {
@@ -270,16 +269,14 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
     },
   };
 
-  // Run each ML model mock sequentially (steps 9-11)
+  // Run each ML model sequentially (steps 9-11)
   for (let i = 0; i < mlModelIds.length; i++) {
     const modelId = mlModelIds[i];
     const stepIdx = PIPELINE_STEPS.length + i;
     const config = getModelConfig(modelId);
 
     onProgress(stepIdx, `Running ${config.name}...`);
-    const result = config.provider === 'api'
-      ? await generateApiResult(modelId, data, ventMask, shape, spacing)
-      : await generateMockResult(modelId, data, ventMask, shape, spacing);
+    const result = await generateApiResult(modelId, data, ventMask, shape, spacing);
     allResults[modelId] = result;
 
     onProgress(stepIdx, `${config.name} complete`);
