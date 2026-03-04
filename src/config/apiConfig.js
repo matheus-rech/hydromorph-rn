@@ -1,7 +1,8 @@
 /**
  * apiConfig — Module-level configuration for ML model API endpoints
  *
- * Stores cloud inference settings. Cloud mode is opt-in.
+ * Stores cloud inference settings. Cloud mode is enabled by default;
+ * users can opt out via the toggle in UploadScreen.
  *
  * Author: Matheus Machado Rech
  */
