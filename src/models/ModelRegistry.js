@@ -29,10 +29,10 @@ const MODEL_CONFIGS = [
     shortName: 'MedSAM2',
     color: colors.green,     // #3fb950 — green
     colorRgb: { r: 63, g: 185, b: 80 },
-    description: 'Medical Segment Anything Model 2 — slight over-segmentation',
+    description: 'MedSAM2 — video-propagation ventricle segmentation',
     isLocal: false,
     provider: 'api',
-    endpoint: '',
+    endpoint: '',            // deploy mmrech-medsam2.hf.space to enable
     fallbackToMock: true,
   },
   {
@@ -41,7 +41,7 @@ const MODEL_CONFIGS = [
     shortName: 'SAM3',
     color: colors.purple,    // #bc8cff — purple
     colorRgb: { r: 188, g: 140, b: 255 },
-    description: 'NeuroSAM3 — text-prompted medical image segmentation',
+    description: 'NeuroSAM3 — text-prompted brain segmentation',
     isLocal: false,
     provider: 'api',
     endpoint: 'https://mmrech-neurosam3.hf.space',
@@ -49,15 +49,15 @@ const MODEL_CONFIGS = [
   },
   {
     id: 'yolovx',
-    name: 'YOLOvx',
-    shortName: 'YOLOvx',
+    name: 'SegResNet',
+    shortName: 'SegResNet',
     color: colors.orange,    // #ff6e40 — orange
     colorRgb: { r: 255, g: 110, b: 64 },
-    description: 'YOLO-based volumetric segmentation — fast, blobby output',
+    description: 'SegResNet (MONAI) — automatic ventricle segmentation',
     isLocal: false,
-    provider: 'mock',
-    endpoint: null,
-    fallbackToMock: false,
+    provider: 'api',
+    endpoint: '',            // deploy mmrech-segresnet-ventricle.hf.space to enable
+    fallbackToMock: true,
   },
 ];
 

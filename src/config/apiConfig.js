@@ -8,9 +8,9 @@
  */
 
 let _config = {
-  cloudEnabled: false, // user must explicitly enable
-  baseUrl: '',         // base URL for inference API (empty = demo mode)
-  timeout: 30000,      // 30s request timeout
+  cloudEnabled: true,  // real endpoints configured; toggle off via UploadScreen
+  baseUrl: '',         // base URL for inference API (empty = per-model endpoints)
+  timeout: 60000,      // 60s — HF Spaces cold start can take ~30s
   retries: 1,          // 1 retry on failure
 };
 

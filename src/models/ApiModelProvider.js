@@ -26,6 +26,7 @@ import {
   computeCallosalAngle,
   opening3D,
 } from '../pipeline/Morphometrics';
+import { computeNphScore } from '../clinical/scoring';
 import { segmentImage } from '../api/GradioClient';
 import { encodeAxialSlicePNG, findBestVentricleSlice } from '../pipeline/SliceEncoder';
 
@@ -129,11 +130,9 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
  * Call a Gradio-based HuggingFace Space endpoint for segmentation.
  *
  * Sends a single representative axial PNG slice to the remote model.
- * The 3D mask for metric computation is derived from the classical mask
- * with a slight perturbation (opening by 1), since decoding an arbitrary
- * segmented PNG back to a full 3D voxel mask on-device is not feasible
- * in the demo. The real segmented image URL is stored in the result
- * for potential UI display.
+ * If the Gradio response includes a decodable 3D binary mask (mask_b64),
+ * it is used directly for metric computation. Otherwise, falls back to
+ * opening3D(classicalMask) as the 3D mask proxy.
  *
  * Falls back to mock on any API failure.
  */
@@ -142,6 +141,8 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
 
   let apiSliceImageUrl = null;
   let isApiResult = false;
+  let modelMask = null;
+  let maskSource = 'fallback';
 
   try {
     // 1. Find the axial slice with the most ventricle voxels
@@ -163,6 +164,27 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     if (gradioResult.imageUrl) {
       apiSliceImageUrl = gradioResult.imageUrl;
     }
+
+    // 5. Try to use the model's returned mask if available
+    //    Some endpoints return mask_b64 (a full 3D binary mask as base64)
+    if (gradioResult.mask_b64) {
+      const decoded = base64ToUint8(gradioResult.mask_b64);
+      const expectedLen = shape[0] * shape[1] * shape[2];
+      if (decoded.length === expectedLen) {
+        modelMask = decoded;
+        maskSource = 'model';
+      } else {
+        console.warn(
+          `[ApiModelProvider] ${modelId} mask size mismatch: got ${decoded.length}, expected ${expectedLen}. Using fallback.`,
+        );
+      }
+    }
+
+    if (!modelMask) {
+      console.warn(
+        `[ApiModelProvider] ${modelId} — no 3D mask returned by Gradio endpoint. Using opening3D fallback.`,
+      );
+    }
   } catch (err) {
     // API call failed — fall back to mock
     console.warn(`[ApiModelProvider] Gradio call failed for ${modelId}: ${err.message}`);
@@ -172,9 +194,8 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     throw new Error(`Gradio API request failed for ${modelId}: ${err.message}`);
   }
 
-  // 5. Derive 3D mask from classical mask with opening (same perturbation
-  //    strategy as SAM3 mock — conservative, smoother boundaries)
-  const mask = opening3D(classicalMask, shape, 1);
+  // 6. Use model mask if available, otherwise derive from classical mask
+  const mask = modelMask || opening3D(classicalMask, shape, 1);
 
   // Count voxels
   let ventCount = 0;
@@ -190,11 +211,11 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
   const ventVolMl = ventVolMm3 / 1000;
 
   // NPH score
-  let nphScore = 0;
-  if (evansResult.maxEvans > 0.3) nphScore++;
-  if (callosalResult.angleDeg !== null && callosalResult.angleDeg < 90) nphScore++;
-  if (ventVolMl > 50) nphScore++;
-  const nphPct = Math.round((nphScore / 3) * 100);
+  const { nphScore, nphPct } = computeNphScore(
+    evansResult.maxEvans,
+    callosalResult.angleDeg,
+    ventVolMl,
+  );
 
   const processingTime = ((performance.now() - startTime) / 1000).toFixed(1);
 
@@ -221,6 +242,7 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     processingTime: `${processingTime}s`,
     processingTimeNum: parseFloat(processingTime),
     isApiResult,
+    maskSource,
     apiSliceImageUrl,
   };
 }
@@ -303,12 +325,12 @@ async function generateJsonApiResult(modelId, config, apiConfig, volumeData, cla
   const ventVolMm3 = ventCount * voxelVol;
   const ventVolMl = ventVolMm3 / 1000;
 
-  // NPH score (same logic as MockModelProvider)
-  let nphScore = 0;
-  if (evansResult.maxEvans > 0.3) nphScore++;
-  if (callosalResult.angleDeg !== null && callosalResult.angleDeg < 90) nphScore++;
-  if (ventVolMl > 50) nphScore++;
-  const nphPct = Math.round((nphScore / 3) * 100);
+  // NPH score
+  const { nphScore, nphPct } = computeNphScore(
+    evansResult.maxEvans,
+    callosalResult.angleDeg,
+    ventVolMl,
+  );
 
   // Bounding boxes from API response (default to empty array)
   const boundingBoxes = body.bounding_boxes || [];
@@ -337,7 +359,8 @@ async function generateJsonApiResult(modelId, config, apiConfig, volumeData, cla
     boundingBoxes,
     processingTime: `${processingTime}s`,
     processingTimeNum: parseFloat(processingTime),
-    isApiResult: false,
+    isApiResult: true,
+    maskSource: 'model',
     apiSliceImageUrl: null,
   };
 }

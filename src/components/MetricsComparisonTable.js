@@ -11,25 +11,26 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, radius, typography } from '../theme';
 import { getAllModelConfigs } from '../models/ModelRegistry';
+import { isEvansAbnormal, isCallosalAbnormal, isVolumeAbnormal } from '../clinical/thresholds';
 
 const METRICS = [
   {
     key: 'evansIndex',
     label: 'Evans Index',
     format: (v) => v !== undefined ? v.toFixed(3) : '—',
-    isAbnormal: (v) => v > 0.3,
+    isAbnormal: (v) => isEvansAbnormal(v),
   },
   {
     key: 'callosalAngle',
     label: 'Callosal Angle',
     format: (v) => v !== null && v !== undefined ? `${v}°` : '—',
-    isAbnormal: (v) => v !== null && v < 90,
+    isAbnormal: (v) => isCallosalAbnormal(v),
   },
   {
     key: 'ventVolMl',
     label: 'Volume (mL)',
     format: (v) => v !== undefined ? v.toFixed(1) : '—',
-    isAbnormal: (v) => v > 50,
+    isAbnormal: (v) => isVolumeAbnormal(v),
   },
   {
     key: 'nphPct',

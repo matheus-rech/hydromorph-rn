@@ -22,6 +22,7 @@ import {
   computeCallosalAngle,
 } from '../pipeline/Morphometrics';
 import { getModelConfig } from './ModelRegistry';
+import { computeNphScore } from '../clinical/scoring';
 
 // Simulated processing times (ms)
 const SIMULATED_TIMES = {
@@ -75,11 +76,11 @@ export async function generateMockResult(modelId, volumeData, classicalMask, sha
   const ventVolMl = ventVolMm3 / 1000;
 
   // NPH score
-  let nphScore = 0;
-  if (evansResult.maxEvans > 0.3) nphScore++;
-  if (callosalResult.angleDeg !== null && callosalResult.angleDeg < 90) nphScore++;
-  if (ventVolMl > 50) nphScore++;
-  const nphPct = Math.round((nphScore / 3) * 100);
+  const { nphScore, nphPct } = computeNphScore(
+    evansResult.maxEvans,
+    callosalResult.angleDeg,
+    ventVolMl,
+  );
 
   // Bounding boxes from connected components
   const boundingBoxes = computeBoundingBoxes(mask, shape, spacing);
