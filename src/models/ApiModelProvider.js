@@ -91,7 +91,7 @@ function isGradioEndpoint(endpoint) {
  *      recompute all metrics from the returned mask
  *   3. On API failure → throw
  *
- * @param {string}     modelId        Model identifier (e.g. 'medsam2')
+ * @param {string}     modelId        Model identifier (e.g. 'sam3')
  * @param {Int16Array} volumeData     Raw HU volume (needed for Evans skull detection)
  * @param {Uint8Array} classicalMask  Binary mask from the classical pipeline
  * @param {number[]}   shape          [X, Y, Z] voxel dimensions

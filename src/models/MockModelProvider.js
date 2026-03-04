@@ -3,9 +3,11 @@
  *
  * Generates perturbed masks from the classical pipeline result
  * to simulate different ML model behaviors:
- *   - MedSAM2: Dilate by 1 → slight over-segmentation (+5-15% volume)
- *   - SAM3:    Opening (erode+dilate) → conservative, smoother (-5-10% volume)
- *   - YOLOvx:  Ellipsoidal approximation → blobby (±10-20% volume)
+ *   - SAM3:        Opening (erode+dilate) → conservative, smoother (-5-10% volume)
+ *   - BiomedParse: Dilate by 1 → foundation model over-segmentation (+5-15% volume)
+ *   - SegVol:      Component filtering + opening → native 3D noise removal (-2-5% volume)
+ *   - VISTA-3D:    Dilate + opening → smoothed, slightly expanded (±5% volume)
+ *   - RepMedSAM:   Opening (erode+dilate) → lightweight edge model, conservative (-5-10% volume)
  *
  * When real API backends are available, swap this provider with
  * ApiModelProvider implementing the same interface.
@@ -26,9 +28,11 @@ import { computeNphScore } from '../clinical/scoring';
 
 // Simulated processing times (ms)
 const SIMULATED_TIMES = {
-  medsam2: 2000,
   sam3: 3500,
-  yolovx: 700,
+  biomedparse: 4000,
+  segvol: 3000,
+  vista3d: 2500,
+  repmedsam: 500,
 };
 
 /**
@@ -49,14 +53,20 @@ export async function generateMockResult(modelId, volumeData, classicalMask, sha
   // Generate perturbed mask
   let mask;
   switch (modelId) {
-    case 'medsam2':
-      mask = perturbMedSAM2(classicalMask, shape);
-      break;
     case 'sam3':
       mask = perturbSAM3(classicalMask, shape);
       break;
-    case 'yolovx':
-      mask = perturbYOLOvx(classicalMask, shape);
+    case 'biomedparse':
+      mask = perturbBiomedParse(classicalMask, shape);
+      break;
+    case 'segvol':
+      mask = perturbSegVol(classicalMask, shape);
+      break;
+    case 'vista3d':
+      mask = perturbVISTA3D(classicalMask, shape);
+      break;
+    case 'repmedsam':
+      mask = perturbRepMedSAM(classicalMask, shape);
       break;
     default:
       mask = new Uint8Array(classicalMask);
@@ -115,14 +125,6 @@ export async function generateMockResult(modelId, volumeData, classicalMask, sha
 // ─── Perturbation Strategies ──────────────────────────────────────────────────
 
 /**
- * MedSAM2: Dilate classical mask by 1 iteration → over-segmentation.
- * Adds ~5-15% more voxels around ventricle boundaries.
- */
-function perturbMedSAM2(classicalMask, shape) {
-  return dilate3D(classicalMask, shape, 1);
-}
-
-/**
  * SAM3: Morphological opening (erode then dilate) → conservative.
  * Smooths boundaries and removes small protrusions, reducing volume by ~5-10%.
  */
@@ -131,72 +133,50 @@ function perturbSAM3(classicalMask, shape) {
 }
 
 /**
- * YOLOvx: Ellipsoidal approximation of each connected component.
- * Replaces each component with its best-fit axis-aligned ellipsoid.
- * Produces blobby, smooth segmentations typical of detection-based methods.
+ * BiomedParse: Dilate classical mask by 1 iteration → over-segmentation.
+ * Foundation models tend to over-segment slightly, adding ~5-15% volume.
  */
-function perturbYOLOvx(classicalMask, shape) {
-  const [X, Y, Z] = shape;
-  const total = X * Y * Z;
-  const result = new Uint8Array(total);
+function perturbBiomedParse(classicalMask, shape) {
+  return dilate3D(classicalMask, shape, 1);
+}
 
+/**
+ * SegVol: Component filtering + opening → native 3D noise removal.
+ * Keeps only components > 100 voxels, then applies opening.
+ * Simulates native 3D volumetric processing, reducing volume by ~2-5%.
+ */
+function perturbSegVol(classicalMask, shape) {
+  const total = classicalMask.length;
   const { labels, counts } = connectedComponents3D(classicalMask, shape);
 
-  // For each significant component, compute bounding box + centroid,
-  // then fill an ellipsoid
+  // Filter: keep only components with > 100 voxels
+  const filtered = new Uint8Array(total);
   for (const [label, count] of counts) {
-    if (count < 50) continue;
-
-    let sumX = 0, sumY = 0, sumZ = 0;
-    let minX = X, maxX = 0, minY = Y, maxY = 0, minZ = Z, maxZ = 0;
-
-    for (let z = 0; z < Z; z++) {
-      for (let y = 0; y < Y; y++) {
-        for (let x = 0; x < X; x++) {
-          if (labels[voxelIndex(shape, x, y, z)] === label) {
-            sumX += x; sumY += y; sumZ += z;
-            if (x < minX) minX = x; if (x > maxX) maxX = x;
-            if (y < minY) minY = y; if (y > maxY) maxY = y;
-            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-          }
-        }
-      }
-    }
-
-    const cx = sumX / count;
-    const cy = sumY / count;
-    const cz = sumZ / count;
-
-    // Semi-axes from bounding box (slightly scaled to match volume)
-    const rx = (maxX - minX) / 2 * 0.85;
-    const ry = (maxY - minY) / 2 * 0.85;
-    const rz = (maxZ - minZ) / 2 * 0.85;
-
-    if (rx < 1 || ry < 1 || rz < 1) continue;
-
-    // Fill ellipsoid
-    const ixMin = Math.max(0, Math.floor(cx - rx - 1));
-    const ixMax = Math.min(X - 1, Math.ceil(cx + rx + 1));
-    const iyMin = Math.max(0, Math.floor(cy - ry - 1));
-    const iyMax = Math.min(Y - 1, Math.ceil(cy + ry + 1));
-    const izMin = Math.max(0, Math.floor(cz - rz - 1));
-    const izMax = Math.min(Z - 1, Math.ceil(cz + rz + 1));
-
-    for (let z = izMin; z <= izMax; z++) {
-      for (let y = iyMin; y <= iyMax; y++) {
-        for (let x = ixMin; x <= ixMax; x++) {
-          const dx = (x - cx) / rx;
-          const dy = (y - cy) / ry;
-          const dz = (z - cz) / rz;
-          if (dx * dx + dy * dy + dz * dz <= 1.0) {
-            result[voxelIndex(shape, x, y, z)] = 1;
-          }
-        }
-      }
+    if (count <= 100) continue;
+    for (let i = 0; i < total; i++) {
+      if (labels[i] === label) filtered[i] = 1;
     }
   }
 
-  return result;
+  // Smooth with opening
+  return opening3D(filtered, shape, 1);
+}
+
+/**
+ * VISTA-3D: Dilate then opening → smoothed, slightly expanded mask.
+ * The combination simulates auto+interactive refinement, ±5% volume.
+ */
+function perturbVISTA3D(classicalMask, shape) {
+  const dilated = dilate3D(classicalMask, shape, 1);
+  return opening3D(dilated, shape, 1);
+}
+
+/**
+ * RepMedSAM: Opening (erode then dilate) → lightweight edge model, conservative.
+ * Same strategy as SAM3; edge models tend to be conservative, -5-10% volume.
+ */
+function perturbRepMedSAM(classicalMask, shape) {
+  return opening3D(classicalMask, shape, 1);
 }
 
 // ─── Bounding Boxes ─────────────────────────────────────────────────────────
