@@ -40,10 +40,7 @@ export const PIPELINE_STEPS = [
 export function getMultiModelSteps() {
   return [
     ...PIPELINE_STEPS,
-    ...getMLModelIds().map((modelId) => {
-      const config = getModelConfig(modelId);
-      return `Running ${config ? config.name : modelId}`;
-    }),
+    'Running ML models',
     'Comparing results',
   ];
 }
@@ -273,22 +270,43 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
     },
   };
 
-  // Run each ML model sequentially (steps 9-11)
-  for (let i = 0; i < mlModelIds.length; i++) {
+  // Run all ML models in parallel using Promise.allSettled (step 9)
+  const mlStepIdx = PIPELINE_STEPS.length;
+  const compareStepIdx = PIPELINE_STEPS.length + 1;
+  let completedCount = 0;
+
+  onProgress(mlStepIdx, `Running ${mlModelIds.length} models in parallel...`);
+  await delay(10);
+
+  // Build a parallel promise per model, tracking completion count for progress
+  const modelPromises = mlModelIds.map((modelId) => {
+    const config = getModelConfig(modelId);
+    return generateApiResult(modelId, data, ventMask, shape, spacing)
+      .then((result) => {
+        completedCount++;
+        onProgress(mlStepIdx, `${completedCount}/${mlModelIds.length} models complete (${config.name} done)`);
+        return result;
+      })
+      .catch((error) => {
+        completedCount++;
+        // eslint-disable-next-line no-console
+        console.warn(`ML model "${modelId}" failed in runMultiModelPipeline:`, error);
+        onProgress(mlStepIdx, `${completedCount}/${mlModelIds.length} models complete (${config.name} failed)`);
+        throw error;
+      });
+  });
+
+  const settled = await Promise.allSettled(modelPromises);
+
+  for (let i = 0; i < settled.length; i++) {
+    const outcome = settled[i];
     const modelId = mlModelIds[i];
-    const stepIdx = PIPELINE_STEPS.length + i;
     const config = getModelConfig(modelId);
 
-    onProgress(stepIdx, `Running ${config.name}...`);
-    try {
-      const result = await generateApiResult(modelId, data, ventMask, shape, spacing);
-      allResults[modelId] = result;
-      onProgress(stepIdx, `${config.name} complete`);
-    } catch (error) {
-      // If an ML model fails (e.g., cloud mode disabled), record an error result
-      // but allow the rest of the pipeline to complete so classical results are preserved.
-      // eslint-disable-next-line no-console
-      console.warn(`ML model "${modelId}" failed in runMultiModelPipeline:`, error);
+    if (outcome.status === 'fulfilled') {
+      allResults[modelId] = outcome.value;
+    } else {
+      const reason = outcome.reason;
       allResults[modelId] = {
         modelId,
         modelName: config.name,
@@ -297,14 +315,13 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
         boundingBoxes: [],
         processingTime: '—',
         processingTimeNum: 0,
-        error: error && error.message ? error.message : 'Model execution failed',
+        error: reason && reason.message ? reason.message : 'Model execution failed',
       };
-      onProgress(stepIdx, `${config.name} failed — continuing with other models`);
     }
   }
 
   // Final comparison step
-  onProgress(getMultiModelSteps().length - 1, 'All models complete — comparing results');
+  onProgress(compareStepIdx, 'All models complete — comparing results');
   await delay(100);
 
   return allResults;
