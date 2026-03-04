@@ -2,7 +2,7 @@
  * UploadScreen — File picker and entry point
  *
  * Allows users to:
- *  1. Pick a NIfTI file (.nii / .nii.gz) via expo-document-picker
+ *  1. Pick a neuroimage file (NIfTI, DICOM, PNG, JPEG, MP4) via expo-document-picker
  *  2. Load the bundled sample CT scan
  *
  * Author: Matheus Machado Rech
@@ -22,6 +22,7 @@ import { colors, spacing, radius, typography } from '../theme';
 import { setApiConfig, isCloudEnabled } from '../config/apiConfig';
 import { checkHealth } from '../api/GradioClient';
 import { getApiModels } from '../models/ModelRegistry';
+import SamplePickerModal from '../components/SamplePickerModal';
 
 export default function UploadScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
@@ -29,15 +30,23 @@ export default function UploadScreen({ navigation }) {
   const [cloudMode, setCloudMode] = useState(isCloudEnabled());
   const [connectionStatus, setConnectionStatus] = useState(null); // null | 'testing' | 'ok' | 'slow' | 'error'
   const [connectionMsg, setConnectionMsg] = useState('');
+  const [showSamplePicker, setShowSamplePicker] = useState(false);
 
   // ── File picker ────────────────────────────────────────────────────────────
 
   async function handlePickFile() {
     setError('');
     try {
+      const ACCEPTED_EXTENSIONS = [
+        '.nii', '.nii.gz',           // NIfTI
+        '.dcm', '.dicom',            // DICOM
+        '.png', '.jpg', '.jpeg',     // Images
+        '.mp4',                       // Video
+      ];
+
       const result = await DocumentPicker.getDocumentAsync({
         type: Platform.OS === 'ios'
-          ? ['public.data', 'org.gnu.gnu-zip-archive']
+          ? ['public.data', 'org.gnu.gnu-zip-archive', 'public.image', 'public.movie', 'public.dicom']
           : ['*/*'],
         copyToCacheDirectory: true,
         multiple: false,
@@ -48,8 +57,8 @@ export default function UploadScreen({ navigation }) {
       const asset = result.assets[0];
       const name  = (asset.name || '').toLowerCase();
 
-      if (!name.endsWith('.nii') && !name.endsWith('.nii.gz')) {
-        setError('Please select a NIfTI file (.nii or .nii.gz)');
+      if (!ACCEPTED_EXTENSIONS.some(ext => name.endsWith(ext))) {
+        setError('Unsupported format. Accepted: NIfTI, DICOM, PNG, JPEG, MP4');
         return;
       }
 
@@ -67,21 +76,33 @@ export default function UploadScreen({ navigation }) {
 
   // ── Sample data ────────────────────────────────────────────────────────────
 
-  async function handleSample() {
+  function handleSample() {
     setError('');
-    await startProcessing({ isSample: true });
+    setShowSamplePicker(true);
+  }
+
+  async function handleSampleSelected(sample) {
+    setShowSamplePicker(false);
+    if (sample.isBundled) {
+      await startProcessing({ isSample: true });
+    } else {
+      await startProcessing({ isSample: true, sampleId: sample.id });
+    }
   }
 
   // ── Shared processing entry ────────────────────────────────────────────────
 
-  async function startProcessing({ uri, fileName, fileSize, isSample }) {
+  async function startProcessing({ uri, fileName, fileSize, isSample, sampleId }) {
     setLoading(true);
 
     navigation.navigate('Processing', {
       uri,
-      fileName: isSample ? 'Sample CT — Brain Atlas (CC BY 4.0)' : fileName,
+      fileName: isSample
+        ? (sampleId ? `Sample CT — ${sampleId}` : 'Sample CT — Brain Atlas (CC BY 4.0)')
+        : fileName,
       fileSize: isSample ? 0 : fileSize,
       isSample: !!isSample,
+      sampleId: sampleId || null,
     });
 
     setLoading(false);
@@ -153,19 +174,25 @@ export default function UploadScreen({ navigation }) {
         onPress={handlePickFile}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="Select a NIfTI head CT scan"
+        accessibilityLabel="Select a neuroimage file"
       >
         <Text style={styles.dropIcon}>⬆</Text>
-        <Text style={styles.dropTitle}>Tap to select a head CT scan</Text>
+        <Text style={styles.dropTitle}>Tap to select a neuroimage</Text>
         <Text style={styles.dropHint}>
-          Processes entirely on-device.{'\n'}No data ever leaves your device.
+          NIfTI processed on-device.{'\n'}Other formats sent to model API.
         </Text>
         <View style={styles.formatRow}>
           <View style={styles.formatBadge}>
             <Text style={styles.formatBadgeText}>.nii</Text>
           </View>
           <View style={styles.formatBadge}>
-            <Text style={styles.formatBadgeText}>.nii.gz</Text>
+            <Text style={styles.formatBadgeText}>DICOM</Text>
+          </View>
+          <View style={styles.formatBadge}>
+            <Text style={styles.formatBadgeText}>PNG/JPEG</Text>
+          </View>
+          <View style={styles.formatBadge}>
+            <Text style={styles.formatBadgeText}>MP4</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -261,7 +288,7 @@ export default function UploadScreen({ navigation }) {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerLine}>
-          Supports NIfTI-1 format · Head CT in Hounsfield Units
+          NIfTI · DICOM · PNG · JPEG · MP4
         </Text>
         <Text style={styles.footerLine}>
           Built by{' '}
@@ -273,6 +300,13 @@ export default function UploadScreen({ navigation }) {
           Research use only · Not for clinical diagnosis
         </Text>
       </View>
+
+      {/* Sample picker modal */}
+      <SamplePickerModal
+        visible={showSamplePicker}
+        onClose={() => setShowSamplePicker(false)}
+        onSelect={handleSampleSelected}
+      />
     </ScrollView>
   );
 }

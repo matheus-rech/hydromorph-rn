@@ -20,36 +20,66 @@ const HF_DATASET_BASE = 'https://huggingface.co/datasets/radimagenet/normal-pres
  * Each entry includes metadata and pre-configured segmentation parameters
  */
 export const SAMPLE_SCANS = [
+  // ── Bundled (instant, no download) ──────────────────────────────────────────
+  {
+    id: 'bundled_atlas',
+    name: 'Brain Atlas (64³)',
+    description: 'Bundled demo — instant, no download',
+    size: '430 KB',
+    modality: 'CT',
+    diagnosis: 'NPH',
+    severity: 'moderate',
+    isBundled: true,
+  },
+
+  // ── Full-resolution NIfTI volumes (remote HF) ──────────────────────────────
+  {
+    id: 'brain_atlas_fullres',
+    name: 'Brain Atlas (Full-Res)',
+    description: 'Full-resolution atlas with ground-truth ventricle mask',
+    filename: 'brain_atlas.nii.gz',
+    url: `${HF_DATASET_BASE}/brain_atlas.nii.gz`,
+    size: '1.1 MB',
+    modality: 'CT',
+    diagnosis: 'NPH',
+    severity: 'moderate',
+    hasGroundTruth: true,
+    groundTruthUrl: `${HF_DATASET_BASE}/seg/brain_atlas/lateral_ventricle.nii.gz`,
+    groundTruthFilename: 'brain_atlas_ventricle_mask.nii.gz',
+    window: {
+      center: 40,
+      width: 80,
+    },
+  },
   {
     id: 'nph_case_01',
     name: 'NPH Case 01',
-    description: 'Normal Pressure Hydrocephalus - Typical presentation',
+    description: 'Typical presentation — mild ventriculomegaly',
     filename: 'nph_case_01.nii.gz',
     url: `${HF_DATASET_BASE}/nph_case_01.nii.gz`,
-    size: '4.2 MB', // Approximate
+    size: '4.2 MB',
     modality: 'CT',
     diagnosis: 'NPH',
-    // Pre-configured bounding boxes for ventricle segmentation
-    // Format: { min_x, min_y, min_z, max_x, max_y, max_z } in voxel coordinates
+    severity: 'mild',
     defaultBoundingBox: {
       min: [80, 60, 40],
       max: [140, 120, 80],
     },
-    // Suggested window/level for optimal visualization
     window: {
-      center: 40,  // WL
-      width: 80,   // WW
+      center: 40,
+      width: 80,
     },
   },
   {
     id: 'nph_case_02',
     name: 'NPH Case 02',
-    description: 'Normal Pressure Hydrocephalus - Moderate ventriculomegaly',
+    description: 'Moderate ventriculomegaly with sulcal effacement',
     filename: 'nph_case_02.nii.gz',
     url: `${HF_DATASET_BASE}/nph_case_02.nii.gz`,
     size: '4.1 MB',
     modality: 'CT',
     diagnosis: 'NPH',
+    severity: 'moderate',
     defaultBoundingBox: {
       min: [75, 55, 35],
       max: [145, 125, 85],
@@ -62,12 +92,13 @@ export const SAMPLE_SCANS = [
   {
     id: 'nph_case_03',
     name: 'NPH Case 03',
-    description: 'Normal Pressure Hydrocephalus - Severe ventriculomegaly',
+    description: 'Severe ventriculomegaly — high Evans Index',
     filename: 'nph_case_03.nii.gz',
     url: `${HF_DATASET_BASE}/nph_case_03.nii.gz`,
     size: '4.3 MB',
     modality: 'CT',
     diagnosis: 'NPH',
+    severity: 'severe',
     defaultBoundingBox: {
       min: [70, 50, 30],
       max: [150, 130, 90],
@@ -76,6 +107,32 @@ export const SAMPLE_SCANS = [
       center: 40,
       width: 80,
     },
+  },
+
+  // ── 2D PNG slices (model-only — skip classical pipeline) ────────────────────
+  {
+    id: 'png_brain_tumor_sample',
+    name: 'Brain CT Slice (Tumor)',
+    description: '2D axial slice — model API only, no classical pipeline',
+    filename: 'ct_00042.png',
+    url: `${HF_DATASET_BASE}/slices/ct_brain_tumor_sample.png`,
+    size: '~80 KB',
+    modality: 'CT',
+    diagnosis: 'Tumor',
+    severity: 'moderate',
+    is2D: true,
+  },
+  {
+    id: 'png_brain_nph_sample',
+    name: 'Brain CT Slice (NPH)',
+    description: '2D axial slice — model API only, no classical pipeline',
+    filename: 'ct_nph_sample.png',
+    url: `${HF_DATASET_BASE}/slices/ct_nph_sample.png`,
+    size: '~80 KB',
+    modality: 'CT',
+    diagnosis: 'NPH',
+    severity: 'moderate',
+    is2D: true,
   },
 ];
 
@@ -191,6 +248,10 @@ export function getSampleMetadata() {
     size: s.size,
     modality: s.modality,
     diagnosis: s.diagnosis,
+    severity: s.severity,
+    isBundled: !!s.isBundled,
+    is2D: !!s.is2D,
+    hasGroundTruth: !!s.hasGroundTruth,
   }));
 }
 

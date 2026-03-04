@@ -26,13 +26,16 @@ import {
   getMultiModelSteps,
   loadNiftiFromUri,
   loadSampleVolume,
+  loadRemoteSample,
+  load2DSample,
   runMultiModelPipeline,
 } from '../pipeline/Pipeline';
+import { getSampleById } from '../config/sampleDataConfig';
 import { setResults as storeResults } from '../models/ResultsStore';
 import ProgressSteps from '../components/ProgressSteps';
 
 export default function ProcessingScreen({ navigation, route }) {
-  const { uri, fileName, fileSize, isSample } = route.params || {};
+  const { uri, fileName, fileSize, isSample, sampleId } = route.params || {};
 
   const [currentStep, setCurrentStep]   = useState(0);
   const [stepDetail, setStepDetail]     = useState('Initializing pipeline…');
@@ -73,35 +76,61 @@ export default function ProcessingScreen({ navigation, route }) {
     };
 
     try {
-      let volume;
+      // Check if this is a 2D sample (model-only, no classical pipeline)
+      const sampleConfig = sampleId ? getSampleById(sampleId) : null;
+      const is2DSample = sampleConfig?.is2D;
 
-      if (isSample) {
-        volume = await loadSampleVolume(onProgress);
+      if (is2DSample) {
+        // 2D slice — download PNG and send directly to model API
+        const sliceResult = await load2DSample(sampleId, onProgress);
+
+        setMetadata({
+          shape:    'Single 2D slice',
+          spacing:  '—',
+          datatype: 'PNG',
+          fileSize: sliceResult.fileSize
+            ? `${(sliceResult.fileSize / 1024).toFixed(0)} KB`
+            : '—',
+        });
+
+        const multiModelResults = await runMultiModelPipeline(sliceResult, onProgress);
+        storeResults(multiModelResults);
+
+        navigation.replace('Results', {
+          results: multiModelResults.classical,
+          volume: sliceResult,
+          hasMultiModel: true,
+        });
       } else {
-        volume = await loadNiftiFromUri(uri, fileName, fileSize, onProgress);
+        // 3D NIfTI volume — full classical + model pipeline
+        let volume;
+
+        if (isSample && sampleId) {
+          volume = await loadRemoteSample(sampleId, onProgress);
+        } else if (isSample) {
+          volume = await loadSampleVolume(onProgress);
+        } else {
+          volume = await loadNiftiFromUri(uri, fileName, fileSize, onProgress);
+        }
+
+        setMetadata({
+          shape:    `${volume.shape[0]}×${volume.shape[1]}×${volume.shape[2]}`,
+          spacing:  `${volume.spacing[0].toFixed(2)}×${volume.spacing[1].toFixed(2)}×${volume.spacing[2].toFixed(2)} mm`,
+          datatype: `INT${volume.header.bitpix}`,
+          fileSize: volume.fileSize
+            ? `${(volume.fileSize / 1024 / 1024).toFixed(1)} MB`
+            : '—',
+        });
+
+        const multiModelResults = await runMultiModelPipeline(volume, onProgress);
+        storeResults(multiModelResults);
+
+        navigation.replace('Results', {
+          results: multiModelResults.classical,
+          volume,
+          hasMultiModel: true,
+        });
       }
-
-      // Update metadata display
-      setMetadata({
-        shape:    `${volume.shape[0]}×${volume.shape[1]}×${volume.shape[2]}`,
-        spacing:  `${volume.spacing[0].toFixed(2)}×${volume.spacing[1].toFixed(2)}×${volume.spacing[2].toFixed(2)} mm`,
-        datatype: `INT${volume.header.bitpix}`,
-        fileSize: volume.fileSize
-          ? `${(volume.fileSize / 1024 / 1024).toFixed(1)} MB`
-          : '—',
-      });
-
-      const multiModelResults = await runMultiModelPipeline(volume, onProgress);
-
-      // Store full results in module-level store (avoids nav param serialization limits)
-      storeResults(multiModelResults);
-
-      // Navigate to results — pass classical results directly + flag for multi-model
-      navigation.replace('Results', {
-        results: multiModelResults.classical,
-        volume,
-        hasMultiModel: true,
-      });
 
     } catch (err) {
       console.error('Pipeline error:', err);
