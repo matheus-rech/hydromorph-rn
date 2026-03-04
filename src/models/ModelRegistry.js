@@ -42,13 +42,7 @@ const MODEL_CONFIGS = [
     color: colors.purple,    // #bc8cff — purple
     colorRgb: { r: 188, g: 140, b: 255 },
     description: 'NeuroSAM3 — text-prompted brain segmentation',
-    isLocal: false,
-    provider: 'api',
-    endpoint: 'https://mmrech-neurosam3.hf.space',
-    fallbackToMock: false,
-  },
-  {
-    id: 'yolovx',
+    id: 'segresnet',
     name: 'SegResNet',
     shortName: 'SegResNet',
     color: colors.orange,    // #ff6e40 — orange
@@ -56,8 +50,8 @@ const MODEL_CONFIGS = [
     description: 'SegResNet (MONAI) — automatic ventricle segmentation',
     isLocal: false,
     provider: 'api',
-    endpoint: '', // TODO: set real YOLOvx deployment endpoint
-    fallbackToMock: false,
+    endpoint: '',            // deploy mmrech-segresnet-ventricle.hf.space to enable
+    fallbackToMock: true,
   },
 ];
 
