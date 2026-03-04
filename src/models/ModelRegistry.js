@@ -48,12 +48,12 @@ const MODEL_CONFIGS = [
     fallbackToMock: true,
   },
   {
-    id: 'yolovx',
+    id: 'yolovx',           // legacy id retained for backward compatibility (maps to SegResNet)
     name: 'SegResNet',
     shortName: 'SegResNet',
     color: colors.orange,    // #ff6e40 — orange
     colorRgb: { r: 255, g: 110, b: 64 },
-    description: 'SegResNet (MONAI) — automatic ventricle segmentation',
+    description: 'SegResNet (MONAI; legacy id: yolovx) — automatic ventricle segmentation',
     isLocal: false,
     provider: 'api',
     endpoint: '',            // deploy mmrech-segresnet-ventricle.hf.space to enable

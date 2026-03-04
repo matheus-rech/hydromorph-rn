@@ -270,7 +270,7 @@ export async function callEndpoint(
  * @param {string} [options.modality="CT"]
  * @param {string} [options.windowType="Brain (Grey Matter)"]
  * @param {number} [options.timeout=60000]
- * @returns {Promise<{imageUrl: string|null, status: string}>}
+ * @returns {Promise<{imageUrl: string|null, status: string, mask_b64: string|null}>}
  */
 export async function segmentImage(
   baseUrl,
@@ -305,14 +305,15 @@ export async function segmentImage(
     timeout,
   );
 
-  // 4. Parse the result — expected: [segmentation_image, status_text]
+  // 4. Parse the result — expected: [segmentation_image, status_text, mask_b64?]
   //    segmentation_image is either a file ref object or null
   //    status_text is a plain string
   let imageUrl = null;
   let status = 'unknown';
+  let mask_b64 = null;
 
   if (Array.isArray(result)) {
-    const [imgResult, statusText] = result;
+    const [imgResult, statusText, maskResult] = result;
 
     // The image result may be a file ref object with a `url` or `path` field
     if (imgResult && typeof imgResult === 'object' && imgResult.path) {
@@ -323,9 +324,19 @@ export async function segmentImage(
     }
 
     status = typeof statusText === 'string' ? statusText : JSON.stringify(statusText);
+
+    if (typeof maskResult === 'string' && maskResult.length > 0) {
+      mask_b64 = maskResult;
+    } else if (
+      maskResult &&
+      typeof maskResult === 'object' &&
+      typeof maskResult.mask_b64 === 'string'
+    ) {
+      mask_b64 = maskResult.mask_b64;
+    }
   }
 
-  return { imageUrl, status };
+  return { imageUrl, status, mask_b64 };
 }
 
 /**
