@@ -1,8 +1,8 @@
 /**
  * SamplePickerModal — Modal overlay for selecting sample CT scans
  *
- * Displays a list of available NPH samples (bundled + remote HF datasets)
- * with severity badges, size indicators, and source tags.
+ * Displays a visual grid of available NPH samples (bundled + remote HF datasets)
+ * with CT thumbnail images, severity badges, size indicators, and source tags.
  *
  * Author: Matheus Machado Rech
  */
@@ -11,6 +11,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   Modal,
   ScrollView,
@@ -25,8 +26,17 @@ const SEVERITY_COLORS = {
   severe:   colors.red,
 };
 
+const NUM_COLUMNS = 2;
+const CARD_GAP = spacing.sm;
+
 export default function SamplePickerModal({ visible, onClose, onSelect }) {
   const samples = getSampleMetadata();
+
+  // Build rows of 2 for the grid
+  const rows = [];
+  for (let i = 0; i < samples.length; i += NUM_COLUMNS) {
+    rows.push(samples.slice(i, i + NUM_COLUMNS));
+  }
 
   return (
     <Modal
@@ -52,60 +62,77 @@ export default function SamplePickerModal({ visible, onClose, onSelect }) {
             </TouchableOpacity>
           </View>
 
-          {/* Sample list */}
+          {/* Sample grid */}
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           >
-            {samples.map((sample) => {
-              const sevColor = SEVERITY_COLORS[sample.severity] || colors.muted;
-              return (
-                <TouchableOpacity
-                  key={sample.id}
-                  style={styles.sampleCard}
-                  onPress={() => onSelect(sample)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.cardRow}>
-                    <View style={styles.cardInfo}>
-                      <Text style={styles.sampleName}>{sample.name}</Text>
-                      <Text style={styles.sampleDesc}>{sample.description}</Text>
-                    </View>
-                    <View style={styles.cardBadges}>
-                      {/* Format badge */}
-                      {sample.is2D && (
-                        <View style={[styles.badge, { backgroundColor: `${colors.cyan}15`, borderColor: `${colors.cyan}40` }]}>
-                          <Text style={[styles.badgeText, { color: colors.cyan }]}>2D</Text>
+            {rows.map((row, rowIdx) => (
+              <View key={rowIdx} style={styles.gridRow}>
+                {row.map((sample) => {
+                  const sevColor = SEVERITY_COLORS[sample.severity] || colors.muted;
+                  return (
+                    <TouchableOpacity
+                      key={sample.id}
+                      style={styles.sampleCard}
+                      onPress={() => onSelect(sample)}
+                      activeOpacity={0.7}
+                    >
+                      {/* Thumbnail */}
+                      <View style={styles.thumbnailContainer}>
+                        <Image
+                          source={sample.thumbnail}
+                          style={styles.thumbnail}
+                          resizeMode="cover"
+                        />
+                        {/* Overlay badges on thumbnail */}
+                        <View style={styles.thumbnailBadges}>
+                          {sample.is2D && (
+                            <View style={[styles.badge, { backgroundColor: `${colors.cyan}30`, borderColor: `${colors.cyan}60` }]}>
+                              <Text style={[styles.badgeText, { color: colors.cyan }]}>2D</Text>
+                            </View>
+                          )}
+                          <View style={[styles.badge, { backgroundColor: `${sevColor}30`, borderColor: `${sevColor}60` }]}>
+                            <Text style={[styles.badgeText, { color: sevColor }]}>
+                              {sample.severity.toUpperCase()}
+                            </Text>
+                          </View>
                         </View>
-                      )}
-                      {/* Severity badge */}
-                      <View style={[styles.badge, { backgroundColor: `${sevColor}15`, borderColor: `${sevColor}40` }]}>
-                        <Text style={[styles.badgeText, { color: sevColor }]}>
-                          {sample.severity.toUpperCase()}
-                        </Text>
                       </View>
-                    </View>
-                  </View>
-                  <View style={styles.cardMeta}>
-                    <Text style={styles.metaText}>{sample.size}</Text>
-                    <Text style={styles.metaDot}>·</Text>
-                    <Text style={[
-                      styles.metaText,
-                      sample.isBundled && { color: colors.green },
-                    ]}>
-                      {sample.isBundled ? 'Bundled — instant' : sample.is2D ? 'Model API only' : 'Remote (HF Dataset)'}
-                    </Text>
-                    {sample.hasGroundTruth && (
-                      <>
-                        <Text style={styles.metaDot}>·</Text>
-                        <Text style={[styles.metaText, { color: colors.green }]}>GT mask</Text>
-                      </>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+
+                      {/* Card info below thumbnail */}
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.sampleName} numberOfLines={1}>
+                          {sample.name}
+                        </Text>
+                        <View style={styles.cardMeta}>
+                          <Text style={styles.metaText}>{sample.size}</Text>
+                          <Text style={styles.metaDot}>·</Text>
+                          <Text
+                            style={[
+                              styles.metaText,
+                              sample.isBundled && { color: colors.green },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {sample.isBundled ? 'Bundled — instant' : 'Remote'}
+                          </Text>
+                          {sample.hasGroundTruth && (
+                            <>
+                              <Text style={styles.metaDot}>·</Text>
+                              <Text style={[styles.metaText, { color: colors.green }]}>GT</Text>
+                            </>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                {/* Fill empty space if odd number of items in last row */}
+                {row.length < NUM_COLUMNS && <View style={styles.sampleCardPlaceholder} />}
+              </View>
+            ))}
           </ScrollView>
 
           {/* Footer note */}
@@ -124,7 +151,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing.lg,
   },
   card: {
     backgroundColor: colors.surface,
@@ -133,7 +160,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     width: '100%',
     maxWidth: 440,
-    maxHeight: '80%',
+    maxHeight: '85%',
     overflow: 'hidden',
   },
 
@@ -171,73 +198,84 @@ const styles = StyleSheet.create({
     fontWeight: typography.semibold,
   },
 
-  // List
+  // Grid
   list: {
     flexShrink: 1,
   },
   listContent: {
     padding: spacing.md,
-    gap: spacing.sm,
+    gap: CARD_GAP,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: CARD_GAP,
   },
 
-  // Sample card
+  // Sample card (grid item)
   sampleCard: {
+    flex: 1,
     backgroundColor: colors.surface2,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border2,
-    padding: spacing.md,
+    overflow: 'hidden',
   },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  cardInfo: {
+  sampleCardPlaceholder: {
     flex: 1,
   },
-  sampleName: {
-    fontSize: typography.md,
-    fontWeight: typography.semibold,
-    color: colors.text,
+
+  // Thumbnail
+  thumbnailContainer: {
+    aspectRatio: 1,
+    backgroundColor: colors.bg,
+    position: 'relative',
   },
-  sampleDesc: {
-    fontSize: typography.sm,
-    color: colors.muted,
-    marginTop: 2,
-    lineHeight: 16,
+  thumbnail: {
+    width: '100%',
+    height: '100%',
   },
-  cardBadges: {
+  thumbnailBadges: {
+    position: 'absolute',
+    top: spacing.xs,
+    right: spacing.xs,
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
   },
   badge: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
   badgeText: {
-    fontSize: 9,
-    fontWeight: typography.semibold,
+    fontSize: 8,
+    fontWeight: typography.bold,
     letterSpacing: 0.5,
   },
 
-  // Card meta row
+  // Card info (below thumbnail)
+  cardInfo: {
+    padding: spacing.sm,
+  },
+  sampleName: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.sm,
+    gap: 4,
+    marginTop: 3,
+    flexWrap: 'wrap',
   },
   metaText: {
-    fontSize: 11,
+    fontSize: 9,
     fontFamily: 'monospace',
     color: colors.muted,
   },
   metaDot: {
-    fontSize: 11,
+    fontSize: 9,
     color: colors.muted,
     opacity: 0.5,
   },
