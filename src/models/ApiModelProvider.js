@@ -1,11 +1,8 @@
 /**
- * ApiModelProvider — Real API inference with automatic mock fallback
+ * ApiModelProvider — Real API inference
  *
  * Calls remote segmentation endpoints (e.g. HuggingFace Inference API)
  * to obtain ventricle masks, then recomputes morphometric indices locally.
- * Falls back to MockModelProvider when the API is unavailable or when
- * cloud mode is disabled.
- *
  * Supports two API protocols:
  *   1. JSON API — POST mask_b64 payload, receive mask_b64 response
  *   2. Gradio API — Upload PNG slice to .hf.space, call segmentImage()
@@ -19,7 +16,6 @@
  */
 
 import { getModelConfig } from './ModelRegistry';
-import { generateMockResult } from './MockModelProvider';
 import { getApiConfig, isCloudEnabled } from '../config/apiConfig';
 import {
   computeEvansIndex,
@@ -90,17 +86,17 @@ function isGradioEndpoint(endpoint) {
  * Generate a segmentation result by calling the model's remote endpoint.
  *
  * Decision tree:
- *   1. Cloud disabled or no endpoint configured → fallback to mock (or throw)
+ *   1. Cloud disabled or no endpoint configured → throw
  *   2. Cloud enabled + endpoint set → POST to API with retry, then
  *      recompute all metrics from the returned mask
- *   3. On API failure → fallback to mock if config allows, else throw
+ *   3. On API failure → throw
  *
  * @param {string}     modelId        Model identifier (e.g. 'medsam2')
  * @param {Int16Array} volumeData     Raw HU volume (needed for Evans skull detection)
  * @param {Uint8Array} classicalMask  Binary mask from the classical pipeline
  * @param {number[]}   shape          [X, Y, Z] voxel dimensions
  * @param {number[]}   spacing        [dx, dy, dz] voxel spacing in mm
- * @returns {Promise<Object>} Result matching MockModelProvider output shape
+ * @returns {Promise<Object>} Result matching multi-model output shape
  */
 export async function generateApiResult(modelId, volumeData, classicalMask, shape, spacing) {
   const config = getModelConfig(modelId);
@@ -109,10 +105,10 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
   const apiConfig = getApiConfig();
 
   // ── Gate: cloud disabled or no endpoint ──────────────────────────────────
-  if (!isCloudEnabled() || !config.endpoint) {
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
+  if (!isCloudEnabled()) {
+    throw new Error('Cloud inference is disabled');
+  }
+  if (!config.endpoint) {
     throw new Error(`No endpoint configured for ${modelId}`);
   }
 
@@ -134,7 +130,7 @@ export async function generateApiResult(modelId, volumeData, classicalMask, shap
  * it is used directly for metric computation. Otherwise, falls back to
  * opening3D(classicalMask) as the 3D mask proxy.
  *
- * Falls back to mock on any API failure.
+ * Throws on API failure.
  */
 async function generateGradioResult(modelId, config, apiConfig, volumeData, classicalMask, shape, spacing) {
   const startTime = performance.now();
@@ -165,37 +161,22 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
       apiSliceImageUrl = gradioResult.imageUrl;
     }
 
-    // 5. Try to use the model's returned mask if available
-    //    Some endpoints return mask_b64 (a full 3D binary mask as base64)
-    if (gradioResult.mask_b64) {
-      const decoded = base64ToUint8(gradioResult.mask_b64);
-      const expectedLen = shape[0] * shape[1] * shape[2];
-      if (decoded.length === expectedLen) {
-        modelMask = decoded;
-        maskSource = 'model';
-      } else {
-        console.warn(
-          `[ApiModelProvider] ${modelId} mask size mismatch: got ${decoded.length}, expected ${expectedLen}. Using fallback.`,
-        );
-      }
-    }
-
-    if (!modelMask) {
-      console.warn(
-        `[ApiModelProvider] ${modelId} — no 3D mask returned by Gradio endpoint. Using opening3D fallback.`,
-      );
-    }
+    // Note: GradioClient.segmentImage currently only returns { imageUrl, status }
+    // and does not expose a 3D mask (mask_b64). The 3D ventricle mask therefore
+    // continues to be derived locally (e.g., via opening3D) rather than from
+    // the remote model output.
   } catch (err) {
-    // API call failed — fall back to mock
+    // API call failed
     console.warn(`[ApiModelProvider] Gradio call failed for ${modelId}: ${err.message}`);
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
     throw new Error(`Gradio API request failed for ${modelId}: ${err.message}`);
   }
 
-  // 6. Use model mask if available, otherwise derive from classical mask
-  const mask = modelMask || opening3D(classicalMask, shape, 1);
+  // 5. Temporary: derive a 3D mask from the classical mask with opening.
+  // TODO: Replace for Gradio-backed models (currently SAM3) once endpoint
+  // returns a volumetric mask payload.
+  //    Current Gradio integration returns a segmented image URL, not a
+  //    volumetric mask payload, so this keeps downstream metrics consistent.
+  const mask = opening3D(classicalMask, shape, 1);
 
   // Count voxels
   let ventCount = 0;
@@ -274,10 +255,6 @@ async function generateJsonApiResult(modelId, config, apiConfig, volumeData, cla
   try {
     response = await attemptFetch(config.endpoint, fetchOptions, apiConfig.timeout);
   } catch (err) {
-    // Both attempts failed
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
     throw new Error(`API request failed for ${modelId}: ${err.message}`);
   }
 
@@ -286,16 +263,10 @@ async function generateJsonApiResult(modelId, config, apiConfig, volumeData, cla
   try {
     body = await response.json();
   } catch (err) {
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
     throw new Error(`Invalid JSON response from ${modelId} endpoint`);
   }
 
   if (!body.mask_b64) {
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
     throw new Error(`Missing mask_b64 in response from ${modelId} endpoint`);
   }
 
@@ -304,9 +275,6 @@ async function generateJsonApiResult(modelId, config, apiConfig, volumeData, cla
   // Validate mask size matches volume dimensions
   const expectedLen = shape[0] * shape[1] * shape[2];
   if (mask.length !== expectedLen) {
-    if (config.fallbackToMock) {
-      return generateMockResult(modelId, volumeData, classicalMask, shape, spacing);
-    }
     throw new Error(
       `Mask size mismatch from ${modelId}: got ${mask.length}, expected ${expectedLen}`,
     );

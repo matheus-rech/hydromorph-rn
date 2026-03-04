@@ -196,12 +196,12 @@ export default function UploadScreen({ navigation }) {
           <Text style={styles.cloudToggleIcon}>{cloudMode ? '☁' : '🔌'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.cloudToggleTitle, cloudMode && styles.cloudToggleTitleActive]}>
-              {cloudMode ? 'Cloud Mode' : 'Demo Mode'}
+              {cloudMode ? 'Cloud Mode' : 'Cloud Disabled'}
             </Text>
             <Text style={[styles.cloudToggleDesc, cloudMode && styles.cloudToggleDescActive]}>
               {cloudMode
                 ? 'Sends anonymized data to inference API'
-                : 'Using simulated model outputs'}
+                : 'Cloud inference is disabled'}
             </Text>
           </View>
           <View style={[styles.cloudTogglePill, cloudMode && styles.cloudTogglePillActive]}>

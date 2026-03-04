@@ -1,8 +1,7 @@
 /**
  * apiConfig — Module-level configuration for ML model API endpoints
  *
- * Stores cloud inference settings. Cloud mode is enabled by default;
- * disable it to force demo mode (mocks only, no network calls).
+ * Stores cloud inference settings. Cloud mode is opt-in.
  *
  * Author: Matheus Machado Rech
  */

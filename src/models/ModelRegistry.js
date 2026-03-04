@@ -3,7 +3,7 @@
  *
  * Each model entry defines display properties, color assignments,
  * and provider configuration used across the comparison UI.
- * Provider types: 'local' (on-device), 'api' (remote), 'mock' (simulated).
+ * Provider types: 'local' (on-device), 'api' (remote).
  *
  * Author: Matheus Machado Rech
  */
@@ -32,8 +32,8 @@ const MODEL_CONFIGS = [
     description: 'MedSAM2 — video-propagation ventricle segmentation',
     isLocal: false,
     provider: 'api',
-    endpoint: '',            // deploy mmrech-medsam2.hf.space to enable
-    fallbackToMock: true,
+    endpoint: '',
+    fallbackToMock: false,
   },
   {
     id: 'sam3',
@@ -49,6 +49,7 @@ const MODEL_CONFIGS = [
   },
   {
     id: 'yolovx',           // legacy id retained for backward compatibility (maps to SegResNet)
+    id: 'segresnet',
     name: 'SegResNet',
     shortName: 'SegResNet',
     color: colors.orange,    // #ff6e40 — orange
@@ -72,7 +73,10 @@ export function getAllModelIds() {
 }
 
 export function getMLModelIds() {
-  return MODEL_CONFIGS.filter((m) => m.id !== 'classical').map((m) => m.id);
+  return MODEL_CONFIGS
+    // API-backed models require configured endpoints to be runnable.
+    .filter((m) => m.id !== 'classical' && (m.provider !== 'api' || m.endpoint))
+    .map((m) => m.id);
 }
 
 export function getAllModelConfigs() {
@@ -81,10 +85,6 @@ export function getAllModelConfigs() {
 
 export function getApiModels() {
   return MODEL_CONFIGS.filter((m) => m.provider === 'api');
-}
-
-export function getMockModels() {
-  return MODEL_CONFIGS.filter((m) => m.provider === 'mock');
 }
 
 export function getProviderType(modelId) {
