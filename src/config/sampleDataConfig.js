@@ -12,6 +12,15 @@
  * Author: Matheus Machado Rech
  */
 
+// Thumbnail images for sample picker UI
+const THUMBNAILS = {
+  axial_ventricle_max:   require('../../assets/sample-images/axial_ventricle_max.png'),
+  axial_frontal_horns:   require('../../assets/sample-images/axial_frontal_horns.png'),
+  axial_temporal_horns:  require('../../assets/sample-images/axial_temporal_horns.png'),
+  axial_posterior_horns: require('../../assets/sample-images/axial_posterior_horns.png'),
+  axial_high_convexity:  require('../../assets/sample-images/axial_high_convexity.png'),
+};
+
 // Base URL for HF Dataset files
 const HF_DATASET_BASE = 'https://huggingface.co/datasets/radimagenet/normal-pressure-hydrocephalus/resolve/main';
 
@@ -30,6 +39,7 @@ export const SAMPLE_SCANS = [
     diagnosis: 'NPH',
     severity: 'moderate',
     isBundled: true,
+    thumbnail: THUMBNAILS.axial_ventricle_max,
   },
 
   // ── Full-resolution NIfTI volumes (remote HF) ──────────────────────────────
@@ -44,6 +54,7 @@ export const SAMPLE_SCANS = [
     diagnosis: 'NPH',
     severity: 'moderate',
     hasGroundTruth: true,
+    thumbnail: THUMBNAILS.axial_ventricle_max,
     groundTruthUrl: `${HF_DATASET_BASE}/seg/brain_atlas/lateral_ventricle.nii.gz`,
     groundTruthFilename: 'brain_atlas_ventricle_mask.nii.gz',
     window: {
@@ -61,6 +72,7 @@ export const SAMPLE_SCANS = [
     modality: 'CT',
     diagnosis: 'NPH',
     severity: 'mild',
+    thumbnail: THUMBNAILS.axial_frontal_horns,
     defaultBoundingBox: {
       min: [80, 60, 40],
       max: [140, 120, 80],
@@ -80,6 +92,7 @@ export const SAMPLE_SCANS = [
     modality: 'CT',
     diagnosis: 'NPH',
     severity: 'moderate',
+    thumbnail: THUMBNAILS.axial_temporal_horns,
     defaultBoundingBox: {
       min: [75, 55, 35],
       max: [145, 125, 85],
@@ -99,6 +112,7 @@ export const SAMPLE_SCANS = [
     modality: 'CT',
     diagnosis: 'NPH',
     severity: 'severe',
+    thumbnail: THUMBNAILS.axial_posterior_horns,
     defaultBoundingBox: {
       min: [70, 50, 30],
       max: [150, 130, 90],
@@ -121,6 +135,7 @@ export const SAMPLE_SCANS = [
     diagnosis: 'Tumor',
     severity: 'moderate',
     is2D: true,
+    thumbnail: THUMBNAILS.axial_high_convexity,
   },
   {
     id: 'png_brain_nph_sample',
@@ -133,6 +148,7 @@ export const SAMPLE_SCANS = [
     diagnosis: 'NPH',
     severity: 'moderate',
     is2D: true,
+    thumbnail: THUMBNAILS.axial_ventricle_max,
   },
 ];
 
@@ -252,6 +268,7 @@ export function getSampleMetadata() {
     isBundled: !!s.isBundled,
     is2D: !!s.is2D,
     hasGroundTruth: !!s.hasGroundTruth,
+    thumbnail: s.thumbnail || THUMBNAILS.axial_ventricle_max,
   }));
 }
 
