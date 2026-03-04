@@ -3,7 +3,7 @@
  *
  * Each model entry defines display properties, color assignments,
  * and provider configuration used across the comparison UI.
- * Provider types: 'local' (on-device), 'api' (remote), 'mock' (simulated).
+ * Provider types: 'local' (on-device), 'api' (remote).
  *
  * Author: Matheus Machado Rech
  */
@@ -33,7 +33,7 @@ const MODEL_CONFIGS = [
     isLocal: false,
     provider: 'api',
     endpoint: '',
-    fallbackToMock: true,
+    fallbackToMock: false,
   },
   {
     id: 'sam3',
@@ -45,7 +45,7 @@ const MODEL_CONFIGS = [
     isLocal: false,
     provider: 'api',
     endpoint: 'https://mmrech-neurosam3.hf.space',
-    fallbackToMock: true,
+    fallbackToMock: false,
   },
   {
     id: 'yolovx',
@@ -55,8 +55,8 @@ const MODEL_CONFIGS = [
     colorRgb: { r: 255, g: 110, b: 64 },
     description: 'YOLO-based volumetric segmentation — fast, blobby output',
     isLocal: false,
-    provider: 'mock',
-    endpoint: null,
+    provider: 'api',
+    endpoint: '', // TODO: set real YOLOvx deployment endpoint
     fallbackToMock: false,
   },
 ];
@@ -72,7 +72,10 @@ export function getAllModelIds() {
 }
 
 export function getMLModelIds() {
-  return MODEL_CONFIGS.filter((m) => m.id !== 'classical').map((m) => m.id);
+  return MODEL_CONFIGS
+    // API-backed models require configured endpoints to be runnable.
+    .filter((m) => m.id !== 'classical' && (m.provider !== 'api' || m.endpoint))
+    .map((m) => m.id);
 }
 
 export function getAllModelConfigs() {
@@ -81,10 +84,6 @@ export function getAllModelConfigs() {
 
 export function getApiModels() {
   return MODEL_CONFIGS.filter((m) => m.provider === 'api');
-}
-
-export function getMockModels() {
-  return MODEL_CONFIGS.filter((m) => m.provider === 'mock');
 }
 
 export function getProviderType(modelId) {
