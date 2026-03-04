@@ -28,6 +28,7 @@ import NPHBadge    from '../components/NPHBadge';
 import SliceViewer from '../components/SliceViewer';
 import ComparisonView from '../components/ComparisonView';
 import { runSanityChecks } from '../pipeline/Pipeline';
+import { isEvansAbnormal, isCallosalAbnormal, isVolumeAbnormal, THRESHOLDS } from '../clinical/thresholds';
 import { getResults as getStoredResults, clearResults as clearStoredResults } from '../models/ResultsStore';
 
 export default function ResultsScreen({ navigation, route }) {
@@ -71,10 +72,10 @@ export default function ResultsScreen({ navigation, route }) {
   const Z = shape[2];
   const voxVolMm3 = volSpacing[0] * volSpacing[1] * volSpacing[2];
 
-  const evansStatus  = evansIndex > 0.3     ? 'abnormal' : 'normal';
-  const angleStatus  = callosalAngle !== null && callosalAngle < 90 ? 'abnormal' : 'normal';
-  const volumeStatus = ventVolMl > 50       ? 'abnormal' : 'normal';
-  const nphStatus    = nphScore >= 2        ? 'abnormal' : nphScore === 1 ? 'moderate' : 'normal';
+  const evansStatus  = isEvansAbnormal(evansIndex)       ? 'abnormal' : 'normal';
+  const angleStatus  = isCallosalAbnormal(callosalAngle) ? 'abnormal' : 'normal';
+  const volumeStatus = isVolumeAbnormal(ventVolMl)       ? 'abnormal' : 'normal';
+  const nphStatus    = nphScore >= THRESHOLDS.nphAbnormalCount ? 'abnormal' : nphScore === 1 ? 'moderate' : 'normal';
 
   const warnings = runSanityChecks(results);
 
@@ -422,8 +423,8 @@ function MeasurementsTable({ results, voxVolMm3 }) {
       label: 'Evans Index',
       value: evansIndex.toFixed(4),
       unit: 'ratio',
-      abnormal: evansIndex > 0.3,
-      status: evansIndex > 0.3 ? 'ABNORMAL' : 'NORMAL',
+      abnormal: isEvansAbnormal(evansIndex),
+      status: isEvansAbnormal(evansIndex) ? 'ABNORMAL' : 'NORMAL',
     },
     {
       label: 'Best Evans Slice',
@@ -435,9 +436,9 @@ function MeasurementsTable({ results, voxVolMm3 }) {
       label: 'Callosal Angle',
       value: callosalAngle !== null ? String(callosalAngle) : 'N/A',
       unit: 'degrees',
-      abnormal: callosalAngle !== null && callosalAngle < 90,
+      abnormal: isCallosalAbnormal(callosalAngle),
       status: callosalAngle !== null
-        ? callosalAngle < 90 ? 'ABNORMAL' : 'NORMAL'
+        ? isCallosalAbnormal(callosalAngle) ? 'ABNORMAL' : 'NORMAL'
         : 'N/A',
     },
     {
@@ -456,8 +457,8 @@ function MeasurementsTable({ results, voxVolMm3 }) {
       label: 'Ventricle Volume',
       value: ventVolMl.toFixed(2),
       unit: 'mL',
-      abnormal: ventVolMl > 50,
-      status: ventVolMl > 50 ? 'ABNORMAL' : 'NORMAL',
+      abnormal: isVolumeAbnormal(ventVolMl),
+      status: isVolumeAbnormal(ventVolMl) ? 'ABNORMAL' : 'NORMAL',
     },
     {
       label: 'Ventricle Voxels',

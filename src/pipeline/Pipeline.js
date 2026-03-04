@@ -21,6 +21,7 @@ import {
 } from './Morphometrics';
 import { generateApiResult } from '../models/ApiModelProvider';
 import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
+import { computeNphScore } from '../clinical/scoring';
 
 // ─── Pipeline steps definition ────────────────────────────────────────────────
 
@@ -218,11 +219,11 @@ export async function runPipeline(volume, onProgress = () => {}) {
   progress(8, 'Generating clinical report...');
   await delay(20);
 
-  let nphScore = 0;
-  if (evansResult.maxEvans > 0.3) nphScore++;
-  if (callosalResult.angleDeg !== null && callosalResult.angleDeg < 90) nphScore++;
-  if (ventVolMl > 50) nphScore++;
-  const nphPct = Math.round((nphScore / 3) * 100);
+  const { nphScore, nphPct } = computeNphScore(
+    evansResult.maxEvans,
+    callosalResult.angleDeg,
+    ventVolMl,
+  );
 
   return {
     evansIndex:     evansResult.maxEvans,
@@ -362,7 +363,7 @@ export async function loadSampleVolume(onProgress = () => {}) {
       dims:       sample.shape,
       pixdim:     sample.spacing,
     },
-    fileName: 'sample_ct_155.nii.gz',
+    fileName: 'brain_atlas_sample.nii.gz',
     fileSize: compressed.length,
   };
 

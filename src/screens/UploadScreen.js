@@ -79,7 +79,7 @@ export default function UploadScreen({ navigation }) {
 
     navigation.navigate('Processing', {
       uri,
-      fileName: isSample ? 'Sample CT — CADS BrainCT-1mm Subject 155' : fileName,
+      fileName: isSample ? 'Sample CT — Brain Atlas (CC BY 4.0)' : fileName,
       fileSize: isSample ? 0 : fileSize,
       isSample: !!isSample,
     });
