@@ -2,12 +2,12 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-blue)
 ![Expo SDK](https://img.shields.io/badge/Expo%20SDK-51-000020?logo=expo)
-![Version](https://img.shields.io/badge/version-2.0.0-58a6ff)
+![Version](https://img.shields.io/badge/version-2.1.0-58a6ff)
 ![License](https://img.shields.io/badge/license-Research%20Only-d29922)
 
 **Cross-platform hydrocephalus morphometrics app (iOS + Android + Web).**
 
-HydroMorph processes NIfTI CT brain scans entirely on-device to compute clinically relevant hydrocephalus biomarkers -- Evans Index, Callosal Angle, Ventricle Volume, and NPH Probability scoring. Version 2.0 introduces multi-model comparison, placing four segmentation approaches side by side in a synchronized 2x2 grid. No data ever leaves the device.
+HydroMorph processes NIfTI CT brain scans to compute clinically relevant hydrocephalus biomarkers -- Evans Index, Callosal Angle, Ventricle Volume, and NPH Probability scoring. The classical pipeline runs 100% on-device for maximum privacy. Version 2.1 adds cloud-based ML model inference via the unified [NeuroSeg server](https://huggingface.co/spaces/mmrech/medsam2-server), supporting multiple state-of-the-art segmentation models (MedSAM2, MCP-MedSAM, SAM-Med3D, SegResNet, nnU-Net) with privacy-preserving 2D slice transmission.
 
 <!-- Screenshots: Upload screen (dark UI, file picker), Processing screen (9-step progress),
      Results screen (metric cards + slice viewer), Comparison view (2x2 grid with color-coded overlays) -->
@@ -16,10 +16,12 @@ HydroMorph processes NIfTI CT brain scans entirely on-device to compute clinical
 
 ## Features
 
-- **9-Step Classical Pipeline** -- NIfTI parsing, brain masking, CSF extraction, morphological filtering, ventricle isolation, Evans Index, Callosal Angle, Volume computation, NPH scoring
-- **Multi-Model Comparison** -- Side-by-side 2x2 grid comparing Classical, MedSAM2, SAM3, and YOLOvx segmentations with synchronized slice navigation, shared slider, metrics comparison table, and bounding box overlays
-- **100% On-Device Privacy** -- All processing runs locally; zero network calls, zero data exfiltration
-- **Clinical Metrics** -- Evans Index (threshold 0.3), Callosal Angle (threshold 90 degrees), Ventricle Volume (threshold 50 mL), NPH probability scoring (LOW / MODERATE / HIGH)
+- **9-Step Classical Pipeline** -- NIfTI parsing, brain masking, CSF extraction, morphological filtering, ventricle isolation, Evans Index, Callosal Angle, Volume computation, NPH scoring (100% on-device)
+- **Multi-Model Comparison** -- Side-by-side comparison of Classical + up to 6 ML models via unified NeuroSeg server
+- **Privacy-First Architecture** -- Full 3D volume never leaves device; only anonymized 2D PNG slices sent to cloud APIs
+- **Cloud Mode Toggle** -- Switch between on-device demo and live ML inference with connection health checks
+- **Sample NPH Cases** -- 3 pre-configured NPH CT scans from HF Datasets for testing
+- **Clinical Metrics** -- Evans Index (threshold 0.3), Callosal Angle (threshold 90°), Ventricle Volume (threshold 50 mL), NPH probability scoring (LOW / MODERATE / HIGH)
 - **NIfTI-1 Support** -- Gzip decompression (via pako), endianness handling, 6 data types
 - **GitHub-Dark UI** -- Purpose-built dark theme (`#0d1117`) with status-colored metric cards
 - **Cross-Platform** -- Single codebase targeting iOS, Android, and Web via Expo
@@ -74,52 +76,95 @@ npx expo start --ios      # iOS simulator
 
 ## Multi-Model Comparison
 
-Version 2.0 introduces a model comparison framework. Four segmentation approaches run on the same scan and display results in a synchronized 2x2 grid:
+Version 2.1 integrates with the unified [NeuroSeg server](https://huggingface.co/spaces/mmrech/medsam2-server) for real ML model inference:
 
-| Model | Color | Status | Description |
-|-------|-------|--------|-------------|
-| **Classical (Proprietary)** | `#58a6ff` Blue | Active | HU thresholding + morphological filtering pipeline |
-| **MedSAM2** | `#3fb950` Green | Mock | Medical Segment Anything Model 2 -- slight over-segmentation |
-| **SAM3** | `#bc8cff` Purple | Mock | Segment Anything Model 3 -- conservative, smoother boundaries |
-| **YOLOvx** | `#ff6e40` Orange | Mock | YOLO-based volumetric segmentation -- fast, blobby output |
+| Model | Color | Type | Modality | Description |
+|-------|-------|------|----------|-------------|
+| **Classical (Proprietary)** | `#58a6ff` Blue | Local | CT | HU thresholding + morphological filtering pipeline |
+| **MedSAM2** | `#3fb950` Green | API | CT/MR | Video-propagation ventricle segmentation |
+| **MCP-MedSAM** | `#00d4d4` Cyan | API | CT | LLM-guided medical segmentation |
+| **SAM-Med3D** | `#bc8cff` Purple | API | CT | 3D-aware medical image segmentation |
+| **MedSAM-3D** | `#d29922` Yellow | API | CT | Full 3D volume segmentation |
+| **SegResNet** | `#ff6e40` Orange | API | CT | MONAI automatic ventricle segmentation |
+| **nnU-Net** | `#a371f7` Violet | API | CT | Self-configuring deep learning |
+| **TractSeg** | `#f85149` Red | API | MR | White matter tract segmentation (MR only) |
 
-The Classical pipeline is fully implemented with real on-device processing. The three ML models currently use mock providers (`MockModelProvider.js`) that generate synthetic segmentation masks with model-characteristic patterns (over-segmentation, smooth boundaries, blobby output).
+### Cloud Mode Toggle
 
-**Migration path:** When real model backends become available, replace the mock provider with actual inference calls. The `ModelRegistry.js` config supports `isLocal` flags and can be extended with endpoint/provider fields. The comparison UI, metrics table, and color scheme are model-agnostic and require no changes.
+In the Upload screen, users can toggle between:
+- **Demo Mode** (🔌): Uses `MockModelProvider` with simulated results, 100% offline
+- **Cloud Mode** (☁️): Calls NeuroSeg server with real inference, sends anonymized 2D slices
+
+The connection health is automatically tested when Cloud Mode is enabled.
 
 ---
 
 ## Architecture
 
 ```
-                        Upload Screen
-                             |
-                     NIfTI file or sample data
-                             |
-                      Processing Screen
-                             |
-              +--------------+--------------+
-              |                             |
-       Classical Pipeline            ML Model Mocks
-       (9 real steps)              (MedSAM2, SAM3, YOLOvx)
-              |                             |
-              +--------+   +---------------+
-                       |   |
-                  ResultsStore
-                       |
-              +--------+--------+
-              |                 |
-        Results Screen    Comparison View
-       (single model)     (2x2 grid + table)
+                    Upload Screen
+                         |
+                 NIfTI file or sample data
+                         |
+                  Processing Screen
+                         |
+          +--------------+--------------+
+          |                             |
+   Classical Pipeline            ML Model Inference
+   (9 real steps, local)        (NeuroSeg server)
+          |                             |
+          +--------+   +---------------+
+                   |   |
+              ResultsStore
+                   |
+          +--------+--------+
+          |                 |
+    Results Screen    Comparison View
+   (single model)     (model grid + table)
 ```
 
-**Data flow:**
+### Data Flow (Privacy-Preserving)
 
-1. **Upload** -- User picks a `.nii` / `.nii.gz` file or loads bundled sample data
-2. **Parse** -- `NiftiReader.js` decompresses (pako), reads header, extracts voxel data
-3. **Pipeline** -- `Pipeline.js` orchestrates 9 steps through `Morphometrics.js` (brain mask, CSF, closing/opening, BFS component analysis, Evans Index, Callosal Angle, volume)
-4. **Mock Models** -- `MockModelProvider.js` generates synthetic masks for the 3 ML models with characteristic distortions
-5. **Results** -- `ResultsStore.js` aggregates all model outputs; `ResultsScreen.js` renders metric cards + slice viewer; `ComparisonView.js` renders the 2x2 comparison grid
+```
+┌─────────────────┐
+│  Patient 3D CT  │ ◄── Full volume (HU) NEVER leaves device
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Find best axial │
+│ ventricle slice │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Encode as PNG   │ ◄── Anonymized 2D slice only
+│ (remove PHI)    │
+└────────┬────────┘
+         │
+         ▼
+┌────────────────────────────────────────────┐
+│  NeuroSeg Server (HuggingFace Spaces)      │
+│  https://mmrech-medsam2-server.hf.space    │
+└────────┬───────────────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Binary Mask    │ ◄── Returned to device
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Recompute       │
+│ Metrics Locally │ ◄── Evans Index, Callosal Angle, Volume
+└─────────────────┘
+```
+
+**Key Privacy Guarantees:**
+- Full 3D patient volume (HU data) never leaves the device
+- Only anonymized 2D PNG slices transmitted to cloud APIs
+- Binary masks can also be transmitted (no raw voxel values)
+- All metric computation happens locally from returned masks
 
 ---
 
@@ -128,7 +173,7 @@ The Classical pipeline is fully implemented with real on-device processing. The 
 | Metric | Threshold | Interpretation |
 |--------|-----------|----------------|
 | **Evans Index** | 0.3 | Ratio of maximum frontal horn width to maximum inner skull diameter. Values >= 0.3 suggest ventriculomegaly |
-| **Callosal Angle** | 90 degrees | Angle measured at the corpus callosum on coronal view. Values < 90 degrees associated with NPH |
+| **Callosal Angle** | 90° | Angle measured at the corpus callosum on coronal view. Values < 90° associated with NPH |
 | **Ventricle Volume** | 50 mL | Total CSF ventricle volume. Values >= 50 mL suggest ventricular enlargement |
 | **NPH Score** | 0-3 | Composite of above metrics. 0 = LOW, 1 = MODERATE, >= 2 = HIGH probability |
 
@@ -139,47 +184,70 @@ The Classical pipeline is fully implemented with real on-device processing. The 
 
 ---
 
+## NeuroSeg Server Integration
+
+### Server Details
+- **Endpoint**: https://mmrech-medsam2-server.hf.space
+- **Repository**: https://github.com/matheus-rech/neuroseg-server
+- **MCP Server**: https://mmrech-medsam2-server.hf.space/gradio_api/mcp/sse
+
+### Sample Data
+3 NPH CT scans hosted on Hugging Face Datasets:
+- `nph_case_01.nii.gz` — Typical NPH presentation
+- `nph_case_02.nii.gz` — Moderate ventriculomegaly
+- `nph_case_03.nii.gz` — Severe ventriculomegaly
+
+### API Protocols
+1. **Gradio Protocol** — Upload PNG → Call endpoint → Poll SSE for result
+2. **Direct JSON API** — POST base64 data, receive JSON response
+
+See [`docs/INTEGRATION_SUMMARY.md`](docs/INTEGRATION_SUMMARY.md) for full integration details.
+
+---
+
 ## Project Structure
 
 ```
 hydromorph-rn/
-├── App.js                              # Entry point, Stack Navigator (Upload > Processing > Results)
+├── App.js                              # Entry point, Stack Navigator
 ├── src/
 │   ├── models/
-│   │   ├── ModelRegistry.js            # Model configs: id, name, color, description, isLocal
-│   │   ├── MockModelProvider.js        # Synthetic mask generator for ML models
+│   │   ├── ModelRegistry.js            # Model configs with NeuroSeg endpoints
+│   │   ├── ApiModelProvider.js         # Cloud inference with privacy layer
+│   │   ├── MockModelProvider.js        # Simulated results for demo mode
 │   │   └── ResultsStore.js             # Aggregates results from all models
+│   ├── api/
+│   │   └── GradioClient.js             # HuggingFace Spaces Gradio protocol
 │   ├── pipeline/
-│   │   ├── NiftiReader.js              # NIfTI-1 parser (gzip via pako, endianness, 6 datatypes)
-│   │   ├── Morphometrics.js            # 3D morphological ops, BFS components, Evans, callosal angle
-│   │   └── Pipeline.js                 # 9-step orchestrator + multi-model coordination
+│   │   ├── NiftiReader.js              # NIfTI-1 parser
+│   │   ├── Morphometrics.js            # 3D morphological ops, metrics
+│   │   ├── Pipeline.js                 # 9-step orchestrator
+│   │   └── SliceEncoder.js             # PNG encoding for API transmission
 │   ├── screens/
-│   │   ├── UploadScreen.js             # File picker + sample data loader
-│   │   ├── ProcessingScreen.js         # Step progress indicators + metadata display
-│   │   └── ResultsScreen.js            # Metric cards, slice viewers, comparison toggle
+│   │   ├── UploadScreen.js             # File picker, cloud toggle, sample loader
+│   │   ├── ProcessingScreen.js         # Step progress indicators
+│   │   └── ResultsScreen.js            # Metric cards, slice viewers, comparison
 │   ├── components/
-│   │   ├── ComparisonView.js           # 2x2 grid layout with shared slider
-│   │   ├── MetricCard.js               # Status-colored metric display card
-│   │   ├── MetricsComparisonTable.js   # Side-by-side metrics for all models
-│   │   ├── ModelSliceCard.js           # Single model tile in comparison grid
-│   │   ├── NPHBadge.js                # LOW / MODERATE / HIGH probability badge
-│   │   ├── ProgressSteps.js            # Animated step indicators
-│   │   └── SliceViewer.js              # PNG renderer + SVG overlays + bounding boxes
-│   └── theme.js                        # GitHub-dark design tokens (colors, spacing, typography)
+│   │   ├── ComparisonView.js           # Model comparison grid
+│   │   ├── MetricCard.js               # Status-colored metric display
+│   │   ├── MetricsComparisonTable.js   # Side-by-side metrics table
+│   │   └── SliceViewer.js              # PNG renderer + SVG overlays
+│   ├── config/
+│   │   ├── apiConfig.js                # Cloud mode configuration
+│   │   └── sampleDataConfig.js         # HF-hosted NPH sample definitions
+│   ├── clinical/
+│   │   ├── thresholds.js               # Clinical threshold values
+│   │   └── scoring.js                  # NPH probability scoring
+│   └── theme.js                        # GitHub-dark design tokens
 ├── assets/
-│   ├── sample-data.json                # Bundled 64x64 CT demo (~430 KB)
-│   ├── icon.png                        # App icon
-│   ├── adaptive-icon.png               # Android adaptive icon
-│   ├── splash.png                      # Splash screen
-│   └── favicon.png                     # Web favicon
-├── app.json                            # Expo configuration
-├── eas.json                            # EAS Build profiles (preview + production)
-├── babel.config.js                     # Babel configuration
-├── package.json                        # Dependencies and scripts
+│   ├── sample-data.json                # Bundled 64x64 CT demo
+│   └── ...
+├── docs/
+│   ├── ARCHITECTURE.md                 # System architecture documentation
+│   └── INTEGRATION_SUMMARY.md          # NeuroSeg integration guide
 └── .github/workflows/
-    ├── deploy-web.yml                  # Expo web export -> GitHub Pages
-    ├── build.yml                       # EAS Build -> Android APK + iOS
-    └── agentic.md                      # GitHub Agentic Workflows (issue triage, CI, PR review)
+    ├── deploy-web.yml                  # Expo web → GitHub Pages
+    └── build.yml                       # EAS Build → Android + iOS
 ```
 
 ---
@@ -193,7 +261,7 @@ Two GitHub Actions workflows run on every push to `main`:
 | **Web Deploy** | `deploy-web.yml` | Expo web export deployed to GitHub Pages |
 | **Native Build** | `build.yml` | EAS Build producing Android APK + iOS simulator build |
 
-The web deploy requires no secrets. Native builds require an `EXPO_TOKEN` secret -- without it, only the web deploy runs (sufficient for conference demos and browser-based access).
+The web deploy requires no secrets. Native builds require an `EXPO_TOKEN` secret.
 
 ---
 
@@ -217,17 +285,19 @@ The web deploy requires no secrets. Native builds require an `EXPO_TOKEN` secret
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full development roadmap, including:
 
-- Real ML model integration (MedSAM2, SAM3, YOLOvx backends)
-- ONNX Runtime on-device inference
-- DICOM support
-- Export to PDF/CSV
-- Multi-language support
+- ✅ Real ML model integration (NeuroSeg server)
+- 🔄 ONNX Runtime on-device inference
+- 🔄 DICOM support
+- 🔄 Export to PDF/CSV
+- 🔄 Multi-language support
 
 ---
 
 ## References
 
+- **NeuroSeg Server** -- Unified segmentation model server. [HF Space](https://huggingface.co/spaces/mmrech/medsam2-server) | [GitHub](https://github.com/matheus-rech/neuroseg-server)
 - **CADS BrainCT-1mm** -- Sample data reference dataset. Licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- **RadImageNet NPH Dataset** -- Normal Pressure Hydrocephalus CT scans. [HF Datasets](https://huggingface.co/datasets/radimagenet/normal-pressure-hydrocephalus)
 - Evans, W.A. (1942). An encephalographic ratio for estimating ventricular enlargement and cerebral atrophy. *Archives of Neurology and Psychiatry*, 47(6), 931-937.
 - Ishii, K. et al. (2008). Clinical impact of the callosal angle in the diagnosis of idiopathic normal pressure hydrocephalus. *European Radiology*, 18(11), 2678-2683.
 
