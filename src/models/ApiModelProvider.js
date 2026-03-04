@@ -161,26 +161,10 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
       apiSliceImageUrl = gradioResult.imageUrl;
     }
 
-    // 5. Try to use the model's returned mask if available
-    //    Some endpoints return mask_b64 (a full 3D binary mask as base64)
-    if (gradioResult.mask_b64) {
-      const decoded = base64ToUint8(gradioResult.mask_b64);
-      const expectedLen = shape[0] * shape[1] * shape[2];
-      if (decoded.length === expectedLen) {
-        modelMask = decoded;
-        maskSource = 'model';
-      } else {
-        console.warn(
-          `[ApiModelProvider] ${modelId} mask size mismatch: got ${decoded.length}, expected ${expectedLen}. Using fallback.`,
-        );
-      }
-    }
-
-    if (!modelMask) {
-      console.warn(
-        `[ApiModelProvider] ${modelId} — no 3D mask returned by Gradio endpoint. Using opening3D fallback.`,
-      );
-    }
+    // Note: GradioClient.segmentImage currently only returns { imageUrl, status }
+    // and does not expose a 3D mask (mask_b64). The 3D ventricle mask therefore
+    // continues to be derived locally (e.g., via opening3D) rather than from
+    // the remote model output.
   } catch (err) {
     // API call failed
     console.warn(`[ApiModelProvider] Gradio call failed for ${modelId}: ${err.message}`);
