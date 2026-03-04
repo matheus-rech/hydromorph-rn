@@ -370,6 +370,110 @@ export async function loadSampleVolume(onProgress = () => {}) {
   return volume;
 }
 
+// ─── Remote Sample Loader ─────────────────────────────────────────────────────
+
+/**
+ * Download a remote sample NIfTI from HuggingFace and load it as a volume.
+ * Uses expo-file-system downloadAsync to cache the file, then parses it.
+ *
+ * @param {string} sampleId - Sample ID from sampleDataConfig
+ * @param {Function} onProgress - (stepIndex, message) => void
+ * @returns {Object} volume compatible with runPipeline()
+ */
+export async function load2DSample(sampleId, onProgress = () => {}) {
+  const { getSampleById } = require('../config/sampleDataConfig');
+  const FileSystem = require('expo-file-system');
+
+  const sample = getSampleById(sampleId);
+  if (!sample) {
+    throw new Error(`Unknown sample ID: ${sampleId}`);
+  }
+
+  onProgress(0, `Downloading ${sample.name}...`);
+  await delay(30);
+
+  const cacheUri = FileSystem.cacheDirectory + sample.filename;
+
+  const fileInfo = await FileSystem.getInfoAsync(cacheUri);
+  if (!fileInfo.exists) {
+    const downloadResult = await FileSystem.downloadAsync(sample.url, cacheUri);
+    if (downloadResult.status !== 200) {
+      throw new Error(`Download failed: HTTP ${downloadResult.status}`);
+    }
+  } else {
+    onProgress(0, `Using cached ${sample.name}...`);
+  }
+
+  onProgress(0, 'Preparing 2D slice for model API...');
+  await delay(30);
+
+  // Read as base64 for API submission
+  const b64 = await FileSystem.readAsStringAsync(cacheUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const updatedInfo = await FileSystem.getInfoAsync(cacheUri);
+
+  // Return a lightweight volume-like object for 2D samples
+  return {
+    is2D: true,
+    sliceBase64: b64,
+    sliceUri: cacheUri,
+    fileName: sample.filename,
+    fileSize: updatedInfo.size || 0,
+    sampleId,
+    shape: [0, 0, 0],
+    spacing: [0, 0, 0],
+    header: { bitpix: 0 },
+  };
+}
+
+export async function loadRemoteSample(sampleId, onProgress = () => {}) {
+  const { getSampleById } = require('../config/sampleDataConfig');
+  const FileSystem = require('expo-file-system');
+
+  const sample = getSampleById(sampleId);
+  if (!sample) {
+    throw new Error(`Unknown sample ID: ${sampleId}`);
+  }
+
+  onProgress(0, `Downloading ${sample.name}...`);
+  await delay(30);
+
+  const cacheUri = FileSystem.cacheDirectory + sample.filename;
+
+  // Check if already cached
+  const fileInfo = await FileSystem.getInfoAsync(cacheUri);
+  if (!fileInfo.exists) {
+    const downloadResult = await FileSystem.downloadAsync(sample.url, cacheUri);
+    if (downloadResult.status !== 200) {
+      throw new Error(`Download failed: HTTP ${downloadResult.status}`);
+    }
+  } else {
+    onProgress(0, `Using cached ${sample.name}...`);
+  }
+
+  onProgress(0, 'Decompressing & parsing NIfTI...');
+  await delay(30);
+
+  // Read as base64 and parse (same flow as loadNiftiFromUri)
+  const b64 = await FileSystem.readAsStringAsync(cacheUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const binaryStr = atob(b64);
+  const buffer = new ArrayBuffer(binaryStr.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+
+  const volume = await parseNifti(buffer);
+  volume.fileName = sample.filename;
+  volume.fileSize = fileInfo.exists ? fileInfo.size : binaryStr.length;
+  return volume;
+}
+
 // ─── NIfTI File Loader ────────────────────────────────────────────────────────
 
 /**

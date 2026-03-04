@@ -35,6 +35,9 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
+    "experiments": {
+      "baseUrl": "/hydromorph-rn"
+    },
     "plugins": [
       "expo-document-picker"
     ],
