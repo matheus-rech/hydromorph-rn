@@ -19,7 +19,6 @@ import {
   computeEvansIndex,
   computeCallosalAngle,
 } from './Morphometrics';
-import { generateMockResult } from '../models/MockModelProvider';
 import { generateApiResult } from '../models/ApiModelProvider';
 import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
 import { computeNphScore } from '../clinical/scoring';
@@ -38,13 +37,16 @@ export const PIPELINE_STEPS = [
   'Generating report',
 ];
 
-export const MULTI_MODEL_STEPS = [
-  ...PIPELINE_STEPS,
-  'Running MedSAM2',
-  'Running SAM3',
-  'Running YOLOvx',
-  'Comparing results',
-];
+export function getMultiModelSteps() {
+  return [
+    ...PIPELINE_STEPS,
+    ...getMLModelIds().map((modelId) => {
+      const config = getModelConfig(modelId);
+      return `Running ${config ? config.name : modelId}`;
+    }),
+    'Comparing results',
+  ];
+}
 
 // ─── Async delay helper ───────────────────────────────────────────────────────
 
@@ -247,7 +249,7 @@ export async function runPipeline(volume, onProgress = () => {}) {
 // ─── Multi-Model Pipeline ─────────────────────────────────────────────────────
 
 /**
- * Run classical pipeline + all ML model mocks.
+ * Run classical pipeline + all ML models.
  * Returns { classical, medsam2, sam3, yolovx } with identical result shapes.
  */
 export async function runMultiModelPipeline(volume, onProgress = () => {}) {
@@ -271,23 +273,38 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
     },
   };
 
-  // Run each ML model mock sequentially (steps 9-11)
+  // Run each ML model sequentially (steps 9-11)
   for (let i = 0; i < mlModelIds.length; i++) {
     const modelId = mlModelIds[i];
     const stepIdx = PIPELINE_STEPS.length + i;
     const config = getModelConfig(modelId);
 
     onProgress(stepIdx, `Running ${config.name}...`);
-    const result = config.provider === 'api'
-      ? await generateApiResult(modelId, data, ventMask, shape, spacing)
-      : await generateMockResult(modelId, data, ventMask, shape, spacing);
-    allResults[modelId] = result;
-
-    onProgress(stepIdx, `${config.name} complete`);
+    try {
+      const result = await generateApiResult(modelId, data, ventMask, shape, spacing);
+      allResults[modelId] = result;
+      onProgress(stepIdx, `${config.name} complete`);
+    } catch (error) {
+      // If an ML model fails (e.g., cloud mode disabled), record an error result
+      // but allow the rest of the pipeline to complete so classical results are preserved.
+      // eslint-disable-next-line no-console
+      console.warn(`ML model "${modelId}" failed in runMultiModelPipeline:`, error);
+      allResults[modelId] = {
+        modelId,
+        modelName: config.name,
+        modelColor: config.color,
+        colorRgb: config.colorRgb,
+        boundingBoxes: [],
+        processingTime: '—',
+        processingTimeNum: 0,
+        error: error && error.message ? error.message : 'Model execution failed',
+      };
+      onProgress(stepIdx, `${config.name} failed — continuing with other models`);
+    }
   }
 
   // Final comparison step
-  onProgress(MULTI_MODEL_STEPS.length - 1, 'All models complete — comparing results');
+  onProgress(getMultiModelSteps().length - 1, 'All models complete — comparing results');
   await delay(100);
 
   return allResults;

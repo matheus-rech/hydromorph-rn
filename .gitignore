@@ -11,6 +11,16 @@ dist/
 web-build/
 .env
 .env.*
+*.pem
+*.crt
+*.cer
+*.pfx
+*.keystore
+*.sqlite
+*.db
+*.log
+__MACOSX/
+._*
 hydro_ci_rn/node_modules/
 .playwright-mcp/
 *.png
