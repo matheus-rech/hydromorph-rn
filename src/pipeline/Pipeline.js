@@ -20,7 +20,9 @@ import {
   computeCallosalAngle,
 } from './Morphometrics';
 import { generateApiResult } from '../models/ApiModelProvider';
+import { generateMockResult } from '../models/MockModelProvider';
 import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
+import { isCloudEnabled } from '../config/apiConfig';
 import { computeNphScore } from '../clinical/scoring';
 
 // ─── Pipeline steps definition ────────────────────────────────────────────────
@@ -281,7 +283,26 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
   // Build a parallel promise per model, tracking completion count for progress
   const modelPromises = mlModelIds.map((modelId) => {
     const config = getModelConfig(modelId);
-    return generateApiResult(modelId, data, ventMask, shape, spacing)
+
+    // Determine whether to skip straight to mock (cloud off or no endpoint)
+    const skipToMock = config.fallbackToMock && (!isCloudEnabled() || !config.endpoint);
+
+    let modelPromise;
+    if (skipToMock) {
+      modelPromise = generateMockResult(modelId, data, ventMask, shape, spacing);
+    } else {
+      modelPromise = generateApiResult(modelId, data, ventMask, shape, spacing)
+        .catch((apiError) => {
+          if (config.fallbackToMock) {
+            // eslint-disable-next-line no-console
+            console.warn(`[Pipeline] API failed for "${modelId}", falling back to mock: ${apiError.message}`);
+            return generateMockResult(modelId, data, ventMask, shape, spacing);
+          }
+          throw apiError;
+        });
+    }
+
+    return modelPromise
       .then((result) => {
         completedCount++;
         onProgress(mlStepIdx, `${completedCount}/${mlModelIds.length} models complete (${config.name} done)`);
