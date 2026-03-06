@@ -149,13 +149,16 @@ function perturbSegVol(classicalMask, shape) {
   const total = classicalMask.length;
   const { labels, counts } = connectedComponents3D(classicalMask, shape);
 
-  // Filter: keep only components with > 100 voxels
-  const filtered = new Uint8Array(total);
+  // Build a keep-set of labels with > 100 voxels (O(k) where k = component count)
+  const keepLabels = new Set();
   for (const [label, count] of counts) {
-    if (count <= 100) continue;
-    for (let i = 0; i < total; i++) {
-      if (labels[i] === label) filtered[i] = 1;
-    }
+    if (count > 100) keepLabels.add(label);
+  }
+
+  // Single O(n) pass to apply the filter
+  const filtered = new Uint8Array(total);
+  for (let i = 0; i < total; i++) {
+    if (keepLabels.has(labels[i])) filtered[i] = 1;
   }
 
   // Smooth with opening

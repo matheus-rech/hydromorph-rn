@@ -138,6 +138,12 @@ export function getAllModelConfigs() {
 
 export function getMLModelIds() {
   return MODEL_CONFIGS
+    .filter((m) => m.id !== 'classical' && m.provider === 'api' && m.endpoint)
+    .map((m) => m.id);
+}
+
+export function getNonClassicalModelIds() {
+  return MODEL_CONFIGS
     .filter((m) => m.id !== 'classical')
     .map((m) => m.id);
 }
