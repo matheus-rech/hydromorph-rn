@@ -73,6 +73,40 @@ export function computeVolumeDelta(volumeA, volumeB) {
 }
 
 /**
+ * Compute Dice coefficient and IoU together in a single pass.
+ * Avoids scanning the mask arrays twice when both metrics are needed.
+ *
+ * @param {Uint8Array} maskA - Binary mask (0/1 per voxel)
+ * @param {Uint8Array} maskB - Binary mask (0/1 per voxel)
+ * @returns {{ dice: number, iou: number }}
+ */
+export function computeDiceAndIoU(maskA, maskB) {
+  if (!maskA || !maskB) return { dice: 0, iou: 0 };
+  const len = maskA.length;
+  if (len !== maskB.length) return { dice: 0, iou: 0 };
+
+  let intersection = 0;
+  let sumA = 0;
+  let sumB = 0;
+
+  for (let i = 0; i < len; i++) {
+    const a = maskA[i];
+    const b = maskB[i];
+    intersection += a & b;
+    sumA += a;
+    sumB += b;
+  }
+
+  const denom = sumA + sumB;
+  const union = denom - intersection; // |A∪B| = |A| + |B| - |A∩B|
+
+  const dice = denom === 0 ? 1.0 : (2 * intersection) / denom;
+  const iou = union === 0 ? 1.0 : intersection / union;
+
+  return { dice, iou };
+}
+
+/**
  * Convenience function: compute all overlap metrics at once.
  * @param {Uint8Array} classicalMask - Classical pipeline binary mask
  * @param {Uint8Array} modelMask - Model-predicted binary mask
