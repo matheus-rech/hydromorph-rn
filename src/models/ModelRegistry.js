@@ -136,12 +136,23 @@ export function getAllModelConfigs() {
 
 // ==================== Filtered Getters ====================
 
-export function getMLModelIds() {
+/**
+ * Returns IDs for API-backed ML models that have a configured endpoint.
+ */
+export function getApiModelIds() {
   return MODEL_CONFIGS
     .filter((m) => m.id !== 'classical' && m.provider === 'api' && m.endpoint)
     .map((m) => m.id);
 }
 
+/**
+ * @deprecated Use getApiModelIds() instead.
+ * Returns IDs for API-backed ML models with configured endpoints.
+ * Kept as a compatibility alias for existing callers.
+ */
+export function getMLModelIds() {
+  return getApiModelIds();
+}
 export function getNonClassicalModelIds() {
   return MODEL_CONFIGS
     .filter((m) => m.id !== 'classical')
