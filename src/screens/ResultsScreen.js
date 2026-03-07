@@ -27,6 +27,7 @@ import MetricCard  from '../components/MetricCard';
 import NPHBadge    from '../components/NPHBadge';
 import SliceViewer from '../components/SliceViewer';
 import ComparisonView from '../components/ComparisonView';
+import BenchmarkTab from '../components/BenchmarkTab';
 import { runSanityChecks } from '../pipeline/Pipeline';
 import { isEvansAbnormal, isCallosalAbnormal, isVolumeAbnormal, THRESHOLDS } from '../clinical/thresholds';
 import { getResults as getStoredResults, clearResults as clearStoredResults } from '../models/ResultsStore';
@@ -120,6 +121,15 @@ export default function ResultsScreen({ navigation, route }) {
               Comparison
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'benchmark' && styles.tabActive]}
+            onPress={() => setActiveTab('benchmark')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'benchmark' && styles.tabTextActive]}>
+              Benchmark
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -131,6 +141,14 @@ export default function ResultsScreen({ navigation, route }) {
             multiModelResults={multiModelResults}
             volumeData={volumeData}
             shape={shape}
+          />
+        )}
+
+        {/* ── Benchmark Tab ─────────────────────────────────────────────── */}
+        {activeTab === 'benchmark' && multiModelResults && (
+          <BenchmarkTab
+            multiModelResults={multiModelResults}
+            classicalResults={results}
           />
         )}
 

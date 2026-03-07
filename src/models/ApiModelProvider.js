@@ -91,7 +91,7 @@ function isGradioEndpoint(endpoint) {
  *      recompute all metrics from the returned mask
  *   3. On API failure → throw
  *
- * @param {string}     modelId        Model identifier (e.g. 'medsam2')
+ * @param {string}     modelId        Model identifier (e.g. 'sam3')
  * @param {Int16Array} volumeData     Raw HU volume (needed for Evans skull detection)
  * @param {Uint8Array} classicalMask  Binary mask from the classical pipeline
  * @param {number[]}   shape          [X, Y, Z] voxel dimensions
@@ -147,11 +147,14 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     // 2. Encode that slice as a PNG
     const { base64 } = encodeAxialSlicePNG(volumeData, shape, spacing, bestSlice);
 
-    // 3. Call the Gradio segmentation API
+    // 3. Call the Gradio segmentation API (use model's configured prompt when available)
+    const prompt = (config.requiresPrompt && config.defaultPrompt)
+      ? config.defaultPrompt
+      : 'ventricles';
     const gradioResult = await segmentImage(
       config.endpoint,
       base64,
-      'ventricles',
+      prompt,
       { timeout: apiConfig.timeout },
     );
 
