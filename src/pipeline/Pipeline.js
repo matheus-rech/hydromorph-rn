@@ -23,6 +23,7 @@ import { generateApiResult } from '../models/ApiModelProvider';
 import { generateMockResult } from '../models/MockModelProvider';
 import { getModelConfig, getNonClassicalModelIds } from '../models/ModelRegistry';
 import { computeNphScore } from '../clinical/scoring';
+import { computeDiceAndIoU, computeVolumeDelta } from '../utils/DiceCalculator';
 
 // ─── Pipeline steps definition ────────────────────────────────────────────────
 
@@ -336,6 +337,28 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
         error: reason && reason.message ? reason.message : 'Model execution failed',
       };
     }
+  }
+
+  // Precompute Dice/IoU/volumeDelta for all ML models vs classical.
+  // Doing this here (after pipeline completes, before navigation) avoids JS-thread
+  // work when the user opens the Benchmark tab.
+  const classicalMask = allResults.classical.ventMask;
+  const classicalVol  = allResults.classical.ventVolMl || 0;
+
+  for (const modelId of allModelIds) {
+    const result = allResults[modelId];
+    if (!result || result.error) continue;
+
+    const modelMask = result.ventMask;
+    const modelVol  = result.ventVolMl || 0;
+
+    const { dice, iou } = modelMask
+      ? computeDiceAndIoU(classicalMask, modelMask)
+      : { dice: 0, iou: 0 };
+
+    result.dice         = dice;
+    result.iou          = iou;
+    result.volumeDelta  = computeVolumeDelta(classicalVol, modelVol);
   }
 
   // Final comparison step
