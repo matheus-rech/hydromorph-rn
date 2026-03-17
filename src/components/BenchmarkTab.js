@@ -85,10 +85,21 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
         const modelMask = m.ventMask;
         const modelVol = m.ventVolMl || 0;
 
-        const { dice, iou } = modelMask
-          ? computeDiceAndIoU(classicalMask, modelMask)
-          : { dice: 0, iou: 0 };
-        const volDelta = computeVolumeDelta(classicalVol, modelVol);
+        // Use precomputed metrics from pipeline when available (preferred path);
+        // fall back to computing them here for backward compatibility.
+        let dice, iou;
+        if (m.dice !== undefined && m.iou !== undefined) {
+          dice = m.dice;
+          iou = m.iou;
+        } else if (modelMask) {
+          ({ dice, iou } = computeDiceAndIoU(classicalMask, modelMask));
+        } else {
+          dice = 0;
+          iou = 0;
+        }
+        const volDelta = m.volumeDelta !== undefined
+          ? m.volumeDelta
+          : computeVolumeDelta(classicalVol, modelVol);
 
         entries.push({
           id: modelId,
