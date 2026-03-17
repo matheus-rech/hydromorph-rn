@@ -20,8 +20,10 @@ import {
   computeCallosalAngle,
 } from './Morphometrics';
 import { generateApiResult } from '../models/ApiModelProvider';
-import { getModelConfig, getMLModelIds } from '../models/ModelRegistry';
+import { generateMockResult } from '../models/MockModelProvider';
+import { getModelConfig, getNonClassicalModelIds } from '../models/ModelRegistry';
 import { computeNphScore } from '../clinical/scoring';
+import { computeDiceAndIoU, computeVolumeDelta } from '../utils/DiceCalculator';
 
 // ─── Pipeline steps definition ────────────────────────────────────────────────
 
@@ -255,7 +257,7 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
 
   const { data } = volume;
   const { ventMask, shape, spacing } = classicalResults;
-  const mlModelIds = getMLModelIds();
+  const allModelIds = getNonClassicalModelIds();
 
   const allResults = {
     classical: {
@@ -275,23 +277,40 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
   const compareStepIdx = PIPELINE_STEPS.length + 1;
   let completedCount = 0;
 
-  onProgress(mlStepIdx, `Running ${mlModelIds.length} models in parallel...`);
+  onProgress(mlStepIdx, `Running ${allModelIds.length} models in parallel...`);
   await delay(10);
 
   // Build a parallel promise per model, tracking completion count for progress
-  const modelPromises = mlModelIds.map((modelId) => {
+  const modelPromises = allModelIds.map((modelId) => {
     const config = getModelConfig(modelId);
-    return generateApiResult(modelId, data, ventMask, shape, spacing)
+
+    // Route to the appropriate provider:
+    //   - local models (e.g. repmedsam) → MockModelProvider
+    //   - API models → ApiModelProvider, with MockModelProvider fallback when
+    //     `fallbackToMock: true` and cloud is disabled or the API call fails
+    const runModel = () => {
+      if (config.provider === 'local') {
+        return generateMockResult(modelId, data, ventMask, shape, spacing);
+      }
+      return generateApiResult(modelId, data, ventMask, shape, spacing).catch((err) => {
+        if (config.fallbackToMock) {
+          return generateMockResult(modelId, data, ventMask, shape, spacing);
+        }
+        throw err;
+      });
+    };
+
+    return runModel()
       .then((result) => {
         completedCount++;
-        onProgress(mlStepIdx, `${completedCount}/${mlModelIds.length} models complete (${config.name} done)`);
+        onProgress(mlStepIdx, `${completedCount}/${allModelIds.length} models complete (${config.name} done)`);
         return result;
       })
       .catch((error) => {
         completedCount++;
         // eslint-disable-next-line no-console
         console.warn(`ML model "${modelId}" failed in runMultiModelPipeline:`, error);
-        onProgress(mlStepIdx, `${completedCount}/${mlModelIds.length} models complete (${config.name} failed)`);
+        onProgress(mlStepIdx, `${completedCount}/${allModelIds.length} models complete (${config.name} failed)`);
         throw error;
       });
   });
@@ -300,7 +319,7 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
 
   for (let i = 0; i < settled.length; i++) {
     const outcome = settled[i];
-    const modelId = mlModelIds[i];
+    const modelId = allModelIds[i];
     const config = getModelConfig(modelId);
 
     if (outcome.status === 'fulfilled') {
@@ -318,6 +337,28 @@ export async function runMultiModelPipeline(volume, onProgress = () => {}) {
         error: reason && reason.message ? reason.message : 'Model execution failed',
       };
     }
+  }
+
+  // Precompute Dice/IoU/volumeDelta for all ML models vs classical.
+  // Doing this here (after pipeline completes, before navigation) avoids JS-thread
+  // work when the user opens the Benchmark tab.
+  const classicalMask = allResults.classical.ventMask;
+  const classicalVol  = allResults.classical.ventVolMl || 0;
+
+  for (const modelId of allModelIds) {
+    const result = allResults[modelId];
+    if (!result || result.error) continue;
+
+    const modelMask = result.ventMask;
+    const modelVol  = result.ventVolMl || 0;
+
+    const { dice, iou } = modelMask
+      ? computeDiceAndIoU(classicalMask, modelMask)
+      : { dice: 0, iou: 0 };
+
+    result.dice         = dice;
+    result.iou          = iou;
+    result.volumeDelta  = computeVolumeDelta(classicalVol, modelVol);
   }
 
   // Final comparison step
