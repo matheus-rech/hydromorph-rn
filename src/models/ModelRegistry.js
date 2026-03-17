@@ -172,7 +172,7 @@ export function getNewModels() {
 }
 
 export function getActiveModels() {
-  return [...MODEL_CONFIGS];
+  return MODEL_CONFIGS.map(m => ({ ...m }));
 }
 
 // ==================== Modality Filters ====================
