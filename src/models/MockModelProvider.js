@@ -22,6 +22,7 @@ import {
   connectedComponents3D,
   computeEvansIndex,
   computeCallosalAngle,
+  keepLargeComponents,
 } from '../pipeline/Morphometrics';
 import { getModelConfig } from './ModelRegistry';
 import { computeNphScore } from '../clinical/scoring';
@@ -146,20 +147,8 @@ function perturbBiomedParse(classicalMask, shape) {
  * Simulates native 3D volumetric processing, reducing volume by ~2-5%.
  */
 function perturbSegVol(classicalMask, shape) {
-  const total = classicalMask.length;
-  const { labels, counts } = connectedComponents3D(classicalMask, shape);
-
-  // Build a keep-set of labels with > 100 voxels (O(k) where k = component count)
-  const keepLabels = new Set();
-  for (const [label, count] of counts) {
-    if (count > 100) keepLabels.add(label);
-  }
-
-  // Single O(n) pass to apply the filter
-  const filtered = new Uint8Array(total);
-  for (let i = 0; i < total; i++) {
-    if (keepLabels.has(labels[i])) filtered[i] = 1;
-  }
+  // Reuse shared component-size filtering logic for consistency with pipeline.
+  const filtered = keepLargeComponents(classicalMask, shape, 100);
 
   // Smooth with opening
   return opening3D(filtered, shape, 1);
