@@ -147,11 +147,14 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     // 2. Encode that slice as a PNG
     const { base64 } = encodeAxialSlicePNG(volumeData, shape, spacing, bestSlice);
 
-    // 3. Call the Gradio segmentation API
+    // 3. Call the Gradio segmentation API (use model's configured prompt when available)
+    const prompt = (config.requiresPrompt && config.defaultPrompt)
+      ? config.defaultPrompt
+      : 'ventricles';
     const gradioResult = await segmentImage(
       config.endpoint,
       base64,
-      'ventricles',
+      prompt,
       { timeout: apiConfig.timeout },
     );
 

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Svg, { Rect, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { colors, spacing, radius, typography } from '../theme';
-import { computeDice, computeIoU, computeVolumeDelta } from '../utils/DiceCalculator';
+import { computeDiceAndIoU, computeVolumeDelta } from '../utils/DiceCalculator';
 
 // ─── Chart dimensions ────────────────────────────────────────────────────────
 
@@ -85,9 +85,21 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
         const modelMask = m.ventMask;
         const modelVol = m.ventVolMl || 0;
 
-        const dice = modelMask ? computeDice(classicalMask, modelMask) : 0;
-        const iou = modelMask ? computeIoU(classicalMask, modelMask) : 0;
-        const volDelta = computeVolumeDelta(classicalVol, modelVol);
+        // Use precomputed metrics from pipeline when available (preferred path);
+        // fall back to computing them here for backward compatibility.
+        let dice, iou;
+        if (m.dice !== undefined && m.iou !== undefined) {
+          dice = m.dice;
+          iou = m.iou;
+        } else if (modelMask) {
+          ({ dice, iou } = computeDiceAndIoU(classicalMask, modelMask));
+        } else {
+          dice = 0;
+          iou = 0;
+        }
+        const volDelta = m.volumeDelta !== undefined
+          ? m.volumeDelta
+          : computeVolumeDelta(classicalVol, modelVol);
 
         entries.push({
           id: modelId,
