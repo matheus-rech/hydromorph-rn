@@ -115,9 +115,6 @@ export function computeDiceAndIoU(maskA, maskB) {
  * @returns {{ dice: number, iou: number, volumeDelta: number }}
  */
 export function computeAllMetrics(classicalMask, modelMask, classicalVolume, modelVolume) {
-  return {
-    dice: computeDice(classicalMask, modelMask),
-    iou: computeIoU(classicalMask, modelMask),
-    volumeDelta: computeVolumeDelta(classicalVolume, modelVolume),
-  };
+  const { dice, iou } = computeDiceAndIoU(classicalMask, modelMask);
+  return { dice, iou, volumeDelta: computeVolumeDelta(classicalVolume, modelVolume) };
 }
