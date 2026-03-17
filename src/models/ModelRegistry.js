@@ -104,7 +104,7 @@ const MODEL_CONFIGS = [
     shortName: 'Rep-MedSAM',
     color: colors.cyan,      // #00d4d4 — cyan
     colorRgb: { r: 0, g: 212, b: 212 },
-    description: 'Rep-MedSAM — lightweight edge MedSAM (ONNX on-device)',
+    description: 'Rep-MedSAM — lightweight edge MedSAM (ONNX on-device; currently simulated via mock)',
     isLocal: true,
     provider: 'local',
     endpoint: null,
