@@ -100,10 +100,3 @@ All use the existing `GradioClient.js` protocol: upload, call, SSE poll.
 2. Bundle ONNX model weights in assets.
 3. Create `OnnxModelProvider.js`.
 4. Wire into `Pipeline.js` as a local provider.
-
-## Backup
-
-Original files backed up to:
-- `src/models/ModelRegistry.backup.js`
-- `src/models/ApiModelProvider.backup.js`
-- `src/models/MockModelProvider.backup.js`
