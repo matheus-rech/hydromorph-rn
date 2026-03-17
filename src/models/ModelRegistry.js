@@ -265,7 +265,7 @@ export function getModelWarning(modelId) {
  * All 6 models are CT-compatible and relevant for NPH analysis
  */
 export function getNPHComparisonSet() {
-  return [...MODEL_CONFIGS];
+  return MODEL_CONFIGS.map(m => ({ ...m }));
 }
 
 export default MODEL_CONFIGS;
