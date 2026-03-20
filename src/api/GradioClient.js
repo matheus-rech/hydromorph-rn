@@ -263,9 +263,13 @@ export async function callEndpoint(
  * Calls the `/process_with_status` endpoint with:
  *   [file_ref, prompt, modality, windowType]
  *
- * @param {string} baseUrl       - HF Space URL
- * @param {string} imageBase64   - PNG as base64 (no data-URI prefix)
- * @param {string} prompt        - Segmentation prompt, e.g. "ventricles"
+ * @param {string} baseUrl            - HF Space URL
+ * @param {string} imageBase64        - PNG as base64 (no data-URI prefix)
+ * @param {string|null} [prompt]      - Segmentation prompt, e.g. "ventricles".
+ *                                      Pass `null` or omit to let the endpoint
+ *                                      apply its own default / auto-detection; an
+ *                                      empty string is sent in that case so the
+ *                                      Gradio data array stays well-typed.
  * @param {Object} [options]
  * @param {string} [options.modality="CT"]
  * @param {string} [options.windowType="Brain (Grey Matter)"]
@@ -286,6 +290,11 @@ export async function segmentImage(
 
   const base = normalizeUrl(baseUrl);
 
+  // Normalize null → empty string so the Gradio data array is always a string.
+  // An empty string signals to the endpoint that no prompt was provided and it
+  // should fall back to its own default / auto-detection mode.
+  const resolvedPrompt = prompt === null ? '' : prompt;
+
   // 1. Upload the image
   const fileRef = await uploadFile(base, imageBase64, 'slice.png', timeout);
 
@@ -301,7 +310,7 @@ export async function segmentImage(
   const result = await callEndpoint(
     base,
     'process_with_status',
-    [gradioFileRef, prompt, modality, windowType],
+    [gradioFileRef, resolvedPrompt, modality, windowType],
     timeout,
   );
 
