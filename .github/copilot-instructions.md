@@ -122,11 +122,14 @@ ML models use a **two-tier architecture**:
 
 Each model in `ModelRegistry.js` has: `{ id, name, shortName, color, colorRgb, description, isLocal, provider, endpoint, fallbackToMock }`.
 
-**Current Models:**
-- **Classical (Proprietary)** — Blue `#58a6ff`, local, HU thresholding + morphological filtering
-- **MedSAM2** — Green `#3fb950`, API, video-propagation segmentation
-- **SAM-Med3D** — Purple `#bc8cff`, API, 3D-aware medical segmentation
-- **SegResNet (MONAI)** — Orange `#ff6e40`, API, automatic ventricle segmentation
+**Current Models**  
+The authoritative list of models (including IDs, colors, and endpoints) lives in `src/models/ModelRegistry.js`. As of this writing, the registered model IDs are:
+- `classical`
+- `sam3`
+- `biomedparse`
+- `segvol`
+- `vista3d`
+- `repmedsam`
 
 **To add a new model:**
 1. Add entry to `MODEL_CONFIGS` array in `ModelRegistry.js`
