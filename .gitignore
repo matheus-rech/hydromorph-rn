@@ -24,4 +24,6 @@ __MACOSX/
 hydro_ci_rn/node_modules/
 .playwright-mcp/
 *.png
+!assets/*.png
+!assets/sample-images/*.png
 service-account*.json
