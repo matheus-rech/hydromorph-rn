@@ -11,7 +11,7 @@ HydroMorph is a cross-platform (iOS, Android, Web) hydrocephalus morphometrics a
 **Key Architecture Principles:**
 - **Privacy-First**: Classical pipeline runs 100% on-device. ML models only send anonymized 2D PNG slices to cloud APIs — the full 3D patient volume (HU data) never leaves the device.
 - **Multi-Model Comparison**: Supports comparison between classical algorithm and multiple ML models via unified NeuroSeg server.
-- **Zero Native Dependencies**: Pure JavaScript implementation using managed Expo workflow (no native modules that break Expo Go).
+- **No Custom Native Modules**: Uses the Expo managed workflow only; does not add project-specific native code or bare-workflow changes that would break Expo Go.
 
 **Tech Stack:**
 - React Native (Expo SDK 51)
