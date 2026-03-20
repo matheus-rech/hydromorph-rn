@@ -2,7 +2,7 @@
  * UploadScreen — File picker and entry point
  *
  * Allows users to:
- *  1. Pick a neuroimage file (NIfTI, DICOM, PNG, JPEG, MP4) via expo-document-picker
+ *  1. Pick a NIfTI scan (.nii, .nii.gz) via expo-document-picker
  *  2. Load the bundled sample CT scan
  *
  * Author: Matheus Machado Rech
@@ -39,14 +39,11 @@ export default function UploadScreen({ navigation }) {
     try {
       const ACCEPTED_EXTENSIONS = [
         '.nii', '.nii.gz',           // NIfTI
-        '.dcm', '.dicom',            // DICOM
-        '.png', '.jpg', '.jpeg',     // Images
-        '.mp4',                       // Video
       ];
 
       const result = await DocumentPicker.getDocumentAsync({
         type: Platform.OS === 'ios'
-          ? ['public.data', 'org.gnu.gnu-zip-archive', 'public.image', 'public.movie', 'public.dicom']
+          ? ['public.data', 'org.gnu.gnu-zip-archive']
           : ['*/*'],
         copyToCacheDirectory: true,
         multiple: false,
@@ -58,7 +55,7 @@ export default function UploadScreen({ navigation }) {
       const name  = (asset.name || '').toLowerCase();
 
       if (!ACCEPTED_EXTENSIONS.some(ext => name.endsWith(ext))) {
-        setError('Unsupported format. Accepted: NIfTI, DICOM, PNG, JPEG, MP4');
+        setError('Unsupported format. Accepted: NIfTI (.nii, .nii.gz)');
         return;
       }
 
@@ -174,25 +171,16 @@ export default function UploadScreen({ navigation }) {
         onPress={handlePickFile}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="Select a neuroimage file"
+        accessibilityLabel="Select a NIfTI scan"
       >
         <Text style={styles.dropIcon}>⬆</Text>
-        <Text style={styles.dropTitle}>Tap to select a neuroimage</Text>
+        <Text style={styles.dropTitle}>Tap to select a NIfTI scan</Text>
         <Text style={styles.dropHint}>
-          NIfTI processed on-device.{'\n'}Other formats sent to model API.
+          NIfTI volumes are processed on-device.{'\n'}Cloud mode optionally compares anonymized model results.
         </Text>
         <View style={styles.formatRow}>
           <View style={styles.formatBadge}>
-            <Text style={styles.formatBadgeText}>.nii</Text>
-          </View>
-          <View style={styles.formatBadge}>
-            <Text style={styles.formatBadgeText}>DICOM</Text>
-          </View>
-          <View style={styles.formatBadge}>
-            <Text style={styles.formatBadgeText}>PNG/JPEG</Text>
-          </View>
-          <View style={styles.formatBadge}>
-            <Text style={styles.formatBadgeText}>MP4</Text>
+            <Text style={styles.formatBadgeText}>.nii / .nii.gz</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -208,8 +196,8 @@ export default function UploadScreen({ navigation }) {
       <View style={styles.privacyStrip}>
         <Text style={styles.privacyIcon}>🔒</Text>
         <Text style={styles.privacyText}>
-          <Text style={styles.privacyBold}>100% On-Device</Text>
-          {' '}— All processing happens locally. Zero server uploads.
+          <Text style={styles.privacyBold}>Privacy-first pipeline</Text>
+          {' '}— Classical processing stays on-device; cloud mode sends only anonymized slices or masks.
         </Text>
       </View>
 
@@ -288,7 +276,7 @@ export default function UploadScreen({ navigation }) {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerLine}>
-          NIfTI · DICOM · PNG · JPEG · MP4
+          NIfTI · Remote sample CT · Optional cloud comparison
         </Text>
         <Text style={styles.footerLine}>
           Built by{' '}

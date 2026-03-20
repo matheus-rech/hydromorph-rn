@@ -174,23 +174,34 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     if (gradioResult.imageUrl) {
       apiSliceImageUrl = gradioResult.imageUrl;
     }
+    if (gradioResult.mask_b64) {
+      try {
+        const decodedMask = base64ToUint8(gradioResult.mask_b64);
+        const expectedLen = shape[0] * shape[1] * shape[2];
 
-    // Note: GradioClient.segmentImage currently only returns { imageUrl, status }
-    // and does not expose a 3D mask (mask_b64). The 3D ventricle mask therefore
-    // continues to be derived locally (e.g., via opening3D) rather than from
-    // the remote model output.
+        if (decodedMask.length === expectedLen) {
+          modelMask = decodedMask;
+          maskSource = 'model';
+        } else {
+          console.warn(
+            `[ApiModelProvider] Ignoring mask_b64 for ${modelId}: got ${decodedMask.length} bytes, expected ${expectedLen}`,
+          );
+        }
+      } catch (decodeError) {
+        console.warn(
+          `[ApiModelProvider] Failed to decode mask_b64 for ${modelId}: ${decodeError.message}`,
+        );
+      }
+    }
   } catch (err) {
     // API call failed
     console.warn(`[ApiModelProvider] Gradio call failed for ${modelId}: ${err.message}`);
     throw new Error(`Gradio API request failed for ${modelId}: ${err.message}`);
   }
 
-  // 5. Temporary: derive a 3D mask from the classical mask with opening.
-  // TODO: Replace for Gradio-backed models (currently SAM3) once endpoint
-  // returns a volumetric mask payload.
-  //    Current Gradio integration returns a segmented image URL, not a
-  //    volumetric mask payload, so this keeps downstream metrics consistent.
-  const mask = opening3D(classicalMask, shape, 1);
+  // 5. Use the model-provided 3D mask when available; otherwise derive a
+  // fallback proxy from the classical mask so downstream metrics still work.
+  const mask = modelMask || opening3D(classicalMask, shape, 1);
 
   // Count voxels
   let ventCount = 0;
