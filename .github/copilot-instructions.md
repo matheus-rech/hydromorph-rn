@@ -4,7 +4,7 @@ Repository-wide guidance for GitHub Copilot coding agents.
 
 ## Project Overview
 - React Native app (Expo SDK 51, React Navigation v6, react-native-svg) that computes Evans Index, Callosal Angle, and ventricle volume from NIfTI head CT scans.
-- Classical pipeline runs fully on-device; cloud models (HuggingFace Spaces) may refine masks. Research use only; not for clinical diagnosis.
+- Classical pipeline runs fully on-device; cloud models (Hugging Face Spaces) may refine masks. Research use only; not for clinical diagnosis.
 - Design: GitHub dark theme (`#0d1117` background), version 2.0.0.
 
 ## Setup & Key Commands
