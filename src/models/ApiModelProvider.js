@@ -155,12 +155,13 @@ async function generateGradioResult(modelId, config, apiConfig, volumeData, clas
     // 3. Call the Gradio segmentation API.
     // Use the model's configured defaultPrompt when set (ModelRegistry is the source
     // of truth). For models that don't require a prompt (e.g. VISTA3D auto-mode),
-    // pass null so the endpoint can apply its own default / auto-detection mode.
+    // pass an empty string so the endpoint (and Gradio client) can apply its own
+    // default / auto-detection mode without receiving a null value.
     const prompt = config.defaultPrompt != null
       ? config.defaultPrompt
       : config.requiresPrompt
         ? DEFAULT_VENTRICLE_PROMPT
-        : null;
+        : '';
     const gradioResult = await segmentImage(
       config.endpoint,
       base64,
