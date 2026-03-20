@@ -14,7 +14,7 @@ Repository-wide guidance for GitHub Copilot coding agents.
 - Sample data: `assets/sample-data.json` (64×64×90 volume). Large uploaded volumes are handled at runtime.
 
 ## Coding Conventions
-- Components: PascalCase filenames, `export default function ComponentName`, `StyleSheet.create()` at file end, header comment block (`/** ... */`) with author.
+- Components: PascalCase filenames, `export default function ComponentName`, `StyleSheet.create()` at file end. Prefer a header comment block (`/** ... */`) with author for new or significantly updated components; some existing components may not include this header.
 - Theme: always consume tokens from `src/theme.js`; avoid hardcoded colors/spacing/typography.
 - Navigation: do not pass large typed arrays through params—use `src/models/ResultsStore.js`.
 - Rendering: keep RGBA buffer → pure-JS PNG encoder (`src/utils/PngEncoder.js`) → `<Image>` with SVG overlays. Do not switch to Canvas or enable PNG compression.
