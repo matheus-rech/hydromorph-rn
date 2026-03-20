@@ -36,7 +36,7 @@ npx expo export --platform web  # Build for web (outputs to dist/)
 ## Code Conventions
 
 ### File Structure
-- **Header comment block**: Every file starts with `/** ... */` containing description and `Author: Matheus Machado Rech`
+- **Header comment block**: For new source files under `src/**`, start the file with `/** ... */` containing a short description and `Author: Matheus Machado Rech` (root config/build scripts like `babel.config.js` don’t need this).
 - **Components**: PascalCase filenames, `export default function ComponentName`
 - **Pipeline/Model functions**: camelCase, named exports (`export function runPipeline`)
 - **Styles**: Use `StyleSheet.create()` at the bottom of each component file
