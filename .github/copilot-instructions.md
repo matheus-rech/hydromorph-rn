@@ -11,7 +11,7 @@ Repository-wide guidance for GitHub Copilot coding agents.
 - Install: `npm install`
 - Run dev: `npx expo start` (use `--web`, `--android`, or `--ios` as needed)
 - Build check: `npx expo export --platform web` (no test suite or linter configured)
-- Sample data: `assets/sample-data.json` (64x64). Large uploaded volumes are handled at runtime.
+- Sample data: `assets/sample-data.json` (64×64×90 volume). Large uploaded volumes are handled at runtime.
 
 ## Coding Conventions
 - Components: PascalCase filenames, `export default function ComponentName`, `StyleSheet.create()` at file end, header comment block (`/** ... */`) with author.
