@@ -30,7 +30,7 @@ const NUM_COLUMNS = 2;
 const CARD_GAP = spacing.sm;
 
 export default function SamplePickerModal({ visible, onClose, onSelect }) {
-  const samples = getSampleMetadata();
+  const samples = getSampleMetadata().filter((sample) => !sample.is2D);
 
   // Build rows of 2 for the grid
   const rows = [];
@@ -50,8 +50,8 @@ export default function SamplePickerModal({ visible, onClose, onSelect }) {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Sample CT Scans</Text>
-              <Text style={styles.subtitle}>Select a case to analyze</Text>
+              <Text style={styles.title}>Sample NIfTI CT Scans</Text>
+              <Text style={styles.subtitle}>Select a 3D case to analyze</Text>
             </View>
             <TouchableOpacity
               style={styles.closeBtn}
@@ -137,7 +137,7 @@ export default function SamplePickerModal({ visible, onClose, onSelect }) {
 
           {/* Footer note */}
           <Text style={styles.footerNote}>
-            Remote scans download from HuggingFace · Bundled scan loads instantly
+            3D NIfTI scans download from HuggingFace · Bundled scan loads instantly
           </Text>
         </View>
       </View>
