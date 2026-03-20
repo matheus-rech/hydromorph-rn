@@ -23,6 +23,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
 const DIST = join(ROOT, 'dist');
 
+// Minimum expected JS bundle size in bytes — should be well above this for a full app.
+const MIN_EXPECTED_BUNDLE_SIZE_BYTES = 100_000;
+
 let failures = 0;
 
 function pass(msg) {
@@ -92,7 +95,7 @@ if (existsSync(jsDir)) {
     const bundleContent = readFileSync(bundlePath, 'utf-8');
     const bundleSize = Buffer.byteLength(bundleContent);
     check(
-      bundleSize > 100_000,
+      bundleSize > MIN_EXPECTED_BUNDLE_SIZE_BYTES,
       `Bundle size: ${(bundleSize / 1024).toFixed(0)} KB (reasonable)`,
       `Bundle suspiciously small: ${bundleSize} bytes`
     );
@@ -151,7 +154,7 @@ await new Promise((resolve) => {
     const port = server.address().port;
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/`);
-      check(resp.status === 200, `GET / returned HTTP ${resp.status}`, `GET / returned HTTP ${resp.status}`);
+      check(resp.status === 200, `GET / returned HTTP ${resp.status}`, `Expected HTTP 200, got ${resp.status}`);
       const body = await resp.text();
       check(body.includes('<div id="root">'), 'Served HTML contains React root', 'Served HTML missing React root');
     } catch (err) {
