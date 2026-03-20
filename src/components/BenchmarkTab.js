@@ -26,10 +26,9 @@ const BAR_GAP = 8;
 const BAR_CHART_PADDING_LEFT = 90;
 const BAR_CHART_PADDING_RIGHT = 56;
 
-// Derive chart width from screen width to avoid clipping on smaller devices.
-// Deduct: section paddingHorizontal (spacing.md * 2) + chartWrapper padding (spacing.sm * 2)
-const { width: WINDOW_WIDTH } = Dimensions.get('window');
-const SCATTER_WIDTH = Math.max(260, WINDOW_WIDTH - (spacing.md * 2 + spacing.sm * 2));
+// Use a fixed minimum scatter width to avoid relying on non-reactive
+// Dimensions-based values computed at module load time.
+const SCATTER_WIDTH = 260;
 const SCATTER_HEIGHT = 200;
 const SCATTER_PADDING = { top: 16, right: 24, bottom: 36, left: 44 };
 
