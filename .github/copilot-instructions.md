@@ -93,9 +93,9 @@ ML models use a **two-tier architecture**:
 - Display via `<Image>` with SVG overlays for annotations
 
 ### Data Flow Between Screens
-- Large typed arrays (~10MB ventricle masks) stored in `ResultsStore.js` (module-level singleton)
-- **DO NOT** pass large data through React Navigation params (serialization limit ~1MB)
-- Only pass boolean flags via navigation to signal data readiness
+- Large typed arrays (~10MB ventricle masks) should live in `ResultsStore.js` (module-level singleton) and be accessed by any screen that needs them.
+- React Navigation params should generally be limited to small, JSON-serializable values (e.g., booleans, IDs, mode flags, and compact result summaries) to avoid hitting serialization limits (~1MB) and to keep transitions fast.
+- **Current exception:** `ProcessingScreen` passes `results` and the `volume` object via route params to `ResultsScreen`, which reads `volume.data` from params. When modifying this flow, keep these payloads small and **do not** add raw voxel arrays or large mask typed arrays to navigation params. For any new heavy data flows, prefer storing data in `ResultsStore.js` and signaling readiness via lightweight flags in navigation.
 
 ## Key Files Reference
 
