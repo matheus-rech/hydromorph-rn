@@ -26,6 +26,9 @@ const BAR_GAP = 8;
 const BAR_CHART_PADDING_LEFT = 90;
 const BAR_CHART_PADDING_RIGHT = 56;
 
+// Use a fixed minimum scatter width to avoid relying on non-reactive
+// Dimensions-based values computed at module load time.
+const SCATTER_WIDTH = 260;
 const SCATTER_HEIGHT = 200;
 const SCATTER_PADDING = { top: 16, right: 24, bottom: 36, left: 44 };
 const MIN_SCATTER_WIDTH = 260;
