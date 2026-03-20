@@ -1,184 +1,56 @@
-# GitHub Copilot SDK — Agent Instructions
+# Copilot Instructions for HydroMorph
 
-> These instructions give any AI coding agent (Copilot, Claude, Codex, or custom)
-> deep knowledge of the GitHub Copilot SDK when working in this repository.
+Repository-wide guidance for GitHub Copilot coding agents.
 
-## About the Copilot SDK
+## Project Overview
+- React Native app (Expo SDK 51, React Navigation v6, react-native-svg) that computes Evans Index, Callosal Angle, and ventricle volume from NIfTI head CT scans.
+- Classical pipeline runs fully on-device; cloud models (HuggingFace Spaces) may refine masks. Research use only; not for clinical diagnosis.
+- Design: GitHub dark theme (`#0d1117` background), version 2.0.0.
 
-The GitHub Copilot SDK (Technical Preview) is a multi-platform SDK for embedding
-Copilot's agentic engine into any application. It wraps the Copilot CLI via
-JSON-RPC and provides high-level abstractions for sessions, streaming, tools,
-authentication, and MCP server integration.
+## Setup & Key Commands
+- Install: `npm install`
+- Run dev: `npx expo start` (use `--web`, `--android`, or `--ios` as needed)
+- Build check: `npx expo export --platform web` (no test suite or linter configured)
+- Sample data: `assets/sample-data.json` (64x64). Large uploaded volumes are handled at runtime.
 
-**Supported languages:** TypeScript/Node.js, Python, Go, .NET/C#
+## Coding Conventions
+- Components: PascalCase filenames, `export default function ComponentName`, `StyleSheet.create()` at file end, header comment block (`/** ... */`) with author.
+- Theme: always consume tokens from `src/theme.js`; avoid hardcoded colors/spacing/typography.
+- Navigation: do not pass large typed arrays through params—use `src/models/ResultsStore.js`.
+- Rendering: keep RGBA buffer → pure-JS PNG encoder (`src/utils/PngEncoder.js`) → `<Image>` with SVG overlays. Do not switch to Canvas or enable PNG compression.
+- Clinical logic: import thresholds from `src/clinical/thresholds.js` and NPH scoring from `src/clinical/scoring.js`; never duplicate or hardcode cutoffs.
+- Models: define/update entries in `src/models/ModelRegistry.js`; provider types `local` or `api` with optional `fallbackToMock`.
 
-## Quick Reference
+## Pipeline & Privacy Guardrails
+- Classical steps (masking, CSF, adaptive opening, ventricle isolation, Evans/Callosal/Volume, report) run on-device; keep `await delay()` yields for UI responsiveness.
+- Adaptive opening is skipped when spacing <0.7mm or >2.5mm—do not remove this check.
+- Cloud calls must only send anonymized 2D PNG slices or binary masks. Never transmit raw HU volumes.
+- Expo managed workflow only; avoid adding native modules that break it.
+- Maintain sanity checks in `src/pipeline/Pipeline.js`.
 
-### Installation
+## Key Files
+- `src/pipeline/Pipeline.js` — orchestrator (classical + multi-model)
+- `src/pipeline/Morphometrics.js` — 3D operations, BFS, Evans/Callosal math, pixel generation
+- `src/pipeline/NiftiReader.js` — NIfTI parsing (gzip, endianness, datatypes)
+- `src/models/ApiModelProvider.js` / `src/models/MockModelProvider.js` — cloud + fallback flows
+- `src/components/SliceViewer.js`, `src/components/ComparisonView.js` — rendering and overlays
+- `src/config/apiConfig.js` — cloud toggle, timeouts, retries
 
-```bash
-# TypeScript
-npm install @github/copilot-sdk
-
-# Python
-pip install github-copilot-sdk
-
-# Go
-go get github.com/github/copilot-sdk/go
-
-# .NET
-dotnet add package GitHub.Copilot.SDK
-```
-
-### Minimal "Hello World" (All Languages)
-
-**TypeScript:**
+## Copilot SDK (when used)
 ```typescript
 import { CopilotClient } from "@github/copilot-sdk";
 const client = new CopilotClient();
 try {
   const session = await client.createSession({ model: "gpt-4.1" });
-  const response = await session.sendAndWait({ prompt: "Hello!" });
-  console.log(response?.data.content);
+  const res = await session.sendAndWait({ prompt: "Hello!" });
+  console.log(res?.data.content);
 } finally {
   await client.stop();
 }
 ```
+- Clean up clients in `finally`/`defer`; never hardcode tokens (use env vars like `COPILOT_GITHUB_TOKEN`).
+- Tool schemas must be valid JSON Schema (`type: "object"` with explicit `required`).
+- Prefer streaming for interactive UIs; `sendAndWait` for batch flows.
 
-**Python:**
-```python
-import asyncio
-from copilot import CopilotClient
-
-async def main():
-    client = CopilotClient()
-    await client.start()
-    try:
-        session = await client.create_session({"model": "gpt-4.1"})
-        response = await session.send_and_wait({"prompt": "Hello!"})
-        print(response.data.content)
-    finally:
-        await client.stop()
-
-asyncio.run(main())
-```
-
-**Go:**
-```go
-ctx := context.Background()
-client := copilot.NewClient(nil)
-if err := client.Start(ctx); err != nil {
-    log.Fatalf("Failed to start client: %v", err)
-}
-defer client.Stop()
-
-session, err := client.CreateSession(ctx, &copilot.SessionConfig{Model: "gpt-4.1"})
-if err != nil {
-    log.Fatalf("Failed to create session: %v", err)
-}
-
-response, err := session.SendAndWait(ctx, copilot.MessageOptions{Prompt: "Hello!"})
-if err != nil {
-    log.Fatalf("Failed to send message: %v", err)
-}
-fmt.Println(*response.Data.Content)
-```
-
-**.NET:**
-```csharp
-await using var client = new CopilotClient();
-await using var session = await client.CreateSessionAsync(new SessionConfig { Model = "gpt-4.1" });
-var response = await session.SendAndWaitAsync(new MessageOptions { Prompt = "Hello!" });
-Console.WriteLine(response?.Data.Content);
-```
-
-### Streaming
-
-Enable with `streaming: true` in session config, then subscribe to events:
-
-| Event                     | Payload Field     | Purpose               |
-| ------------------------- | ----------------- | --------------------- |
-| `assistant.message_delta` | `deltaContent`    | Real-time text chunks |
-| `assistant.message`       | `content`         | Complete message      |
-| `session.idle`            | —                 | Agent done processing |
-
-### Custom Tools
-
-Tools let the agent call your code. Define them with a name, description,
-JSON Schema parameters, and a handler function, then pass them in `tools:[]`
-when creating a session.
-
-- **TypeScript**: `defineTool("name", { description, parameters, handler })`
-- **Python**: `@define_tool(description="...")` decorator with Pydantic `BaseModel` params
-- **Go**: `copilot.DefineTool("name", "desc", func(params T, inv ToolInvocation) (R, error))`
-- **.NET**: `AIFunctionFactory.Create(delegate, "name", "description")`
-
-### Authentication Priority
-
-1. Explicit `githubToken` in constructor
-2. `CAPI_HMAC_KEY` / `COPILOT_HMAC_KEY`
-3. `GITHUB_COPILOT_API_TOKEN` + `COPILOT_API_URL`
-4. `COPILOT_GITHUB_TOKEN` → `GH_TOKEN` → `GITHUB_TOKEN`
-5. Stored OAuth from `copilot auth login`
-6. `gh auth` credentials
-
-**BYOK**: Use your own OpenAI / Azure AI Foundry / Anthropic keys — no Copilot
-subscription needed. Key-based auth only (no Entra ID / managed identity).
-
-### MCP Servers
-
-```typescript
-// Connect to GitHub's MCP server
-const session = await client.createSession({
-    mcpServers: {
-        github: { type: "http", url: "https://api.githubcopilot.com/mcp/" },
-    },
-});
-```
-
-Supports both local stdio servers and remote HTTP servers.
-
-### External CLI Server
-
-```bash
-copilot --headless --port 4321
-```
-```typescript
-const client = new CopilotClient({ cliUrl: "localhost:4321" });
-```
-
-### Debugging
-
-- Set `logLevel: "debug"` on client options
-- Use `cliArgs: ["--log-dir", "/path"]` for persistent logs (TS/.NET)
-- For Python/Go, run CLI manually with `--log-dir` and connect via `cli_url`
-- Common errors: CLI not found → set `cliPath`; Not authenticated → `copilot auth login` or set token
-
-## Coding Standards for This Repository
-
-When writing code that uses the Copilot SDK:
-
-1. **Always clean up**: Call `client.stop()` in `finally` blocks, use `defer` (Go),
-   or `await using` (.NET). Never leave CLI processes orphaned.
-2. **Handle errors**: Wrap SDK calls in try/catch. Subscribe to `error` and
-   `tool.execution_error` events.
-3. **Use streaming for interactive UIs**, `sendAndWait` for batch/script usage.
-4. **Never hardcode tokens**: Use env vars (`COPILOT_GITHUB_TOKEN`) or secrets.
-5. **Tool handlers must return JSON-serializable values**. Never return `undefined`.
-6. **Validate tool schemas**: All `parameters` must be valid JSON Schema with
-   `type: "object"` at the root and `required` fields specified.
-7. **Test MCP servers independently** before integrating:
-   ```bash
-   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{...}}' | /path/to/server
-   ```
-
-## Resources
-
-- [SDK Repository](https://github.com/github/copilot-sdk)
-- [Getting Started Guide](https://github.com/github/copilot-sdk/blob/main/docs/getting-started.md)
-- [Authentication Docs](https://github.com/github/copilot-sdk/blob/main/docs/auth/index.md)
-- [BYOK Docs](https://github.com/github/copilot-sdk/blob/main/docs/auth/byok.md)
-- [Debugging Guide](https://github.com/github/copilot-sdk/blob/main/docs/debugging.md)
-- [MCP Overview](https://github.com/github/copilot-sdk/blob/main/docs/mcp/overview.md)
-- [Cookbook Recipes](https://github.com/github/awesome-copilot/tree/main/cookbook/copilot-sdk)
-- [Awesome Copilot](https://github.com/github/awesome-copilot)
+## Validation Expectations
+- Default check: `npx expo export --platform web`. If failures stem from missing assets or remote endpoints, record the cause instead of bypassing safeguards.
