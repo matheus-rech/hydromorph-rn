@@ -265,7 +265,10 @@ export async function callEndpoint(
  *
  * @param {string} baseUrl       - HF Space URL
  * @param {string} imageBase64   - PNG as base64 (no data-URI prefix)
- * @param {string} prompt        - Segmentation prompt, e.g. "ventricles"
+ * @param {string|null|undefined} prompt - Segmentation prompt (e.g. "ventricles").
+ *   Pass `undefined` or omit to use the default "ventricles" prompt.
+ *   Pass `null` or `""` for models that auto-detect without a prompt — both are
+ *   normalized to the default so the endpoint always receives a valid string.
  * @param {Object} [options]
  * @param {string} [options.modality="CT"]
  * @param {string} [options.windowType="Brain (Grey Matter)"]
@@ -278,6 +281,11 @@ export async function segmentImage(
   prompt = 'ventricles',
   options = {},
 ) {
+  // Normalize null / empty string to the default prompt so the endpoint always
+  // receives a non-null string value.  Models that don't require an explicit
+  // prompt still benefit from a sensible fallback.
+  const normalizedPrompt = !prompt ? 'ventricles' : prompt;
+
   const {
     modality = 'CT',
     windowType = 'Brain (Grey Matter)',
@@ -301,7 +309,7 @@ export async function segmentImage(
   const result = await callEndpoint(
     base,
     'process_with_status',
-    [gradioFileRef, prompt, modality, windowType],
+    [gradioFileRef, normalizedPrompt, modality, windowType],
     timeout,
   );
 

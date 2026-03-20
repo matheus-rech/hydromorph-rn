@@ -13,7 +13,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import Svg, { Rect, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { colors, spacing, radius, typography } from '../theme';
@@ -26,9 +26,8 @@ const BAR_GAP = 8;
 const BAR_CHART_PADDING_LEFT = 90;
 const BAR_CHART_PADDING_RIGHT = 56;
 
-// Use a fixed minimum scatter width to avoid relying on non-reactive
-// Dimensions-based values computed at module load time.
-const SCATTER_WIDTH = 260;
+// scatterWidth is computed dynamically inside the component via useWindowDimensions()
+// to update on orientation changes, split-screen, and web window resizes.
 const SCATTER_HEIGHT = 200;
 const SCATTER_PADDING = { top: 16, right: 24, bottom: 36, left: 44 };
 
@@ -55,6 +54,11 @@ function formatVolDelta(pct) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BenchmarkTab({ multiModelResults, classicalResults }) {
+  // Derive chart width from current window dimensions so the SVG updates on
+  // orientation changes, split-screen resizing, and web window resizes.
+  const { width: windowWidth } = useWindowDimensions();
+  const scatterWidth = Math.max(windowWidth - 48, 260);
+
   // Compute metrics for all models
   const metrics = useMemo(() => {
     if (!classicalResults || !classicalResults.ventMask) return [];
@@ -139,11 +143,11 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
   // ── Bar chart dimensions ─────────────────────────────────────────────────
 
   const barChartHeight = metrics.length * (BAR_HEIGHT + BAR_GAP) + BAR_GAP;
-  const barChartWidth = SCATTER_WIDTH + BAR_CHART_PADDING_LEFT;
+  const barChartWidth = scatterWidth + BAR_CHART_PADDING_LEFT;
 
   // ── Scatter plot scale helpers ───────────────────────────────────────────
 
-  const plotW = SCATTER_WIDTH - SCATTER_PADDING.left - SCATTER_PADDING.right;
+  const plotW = scatterWidth - SCATTER_PADDING.left - SCATTER_PADDING.right;
   const plotH = SCATTER_HEIGHT - SCATTER_PADDING.top - SCATTER_PADDING.bottom;
 
   const maxTime = Math.max(...metrics.map((m) => m.time), 1);
@@ -228,7 +232,7 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
       <View style={styles.section}>
         <Text style={styles.subHeading}>Dice vs. Inference Time</Text>
         <View style={styles.chartWrapper}>
-          <Svg width={SCATTER_WIDTH} height={SCATTER_HEIGHT}>
+          <Svg width={scatterWidth} height={SCATTER_HEIGHT}>
             {/* Y-axis grid lines + labels */}
             {yGridValues.map((val) => {
               const yPos = scaleY(val);
@@ -237,7 +241,7 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
                   <Line
                     x1={SCATTER_PADDING.left}
                     y1={yPos}
-                    x2={SCATTER_WIDTH - SCATTER_PADDING.right}
+                    x2={scatterWidth - SCATTER_PADDING.right}
                     y2={yPos}
                     stroke={colors.border}
                     strokeWidth={0.5}
@@ -260,7 +264,7 @@ export default function BenchmarkTab({ multiModelResults, classicalResults }) {
             <Line
               x1={SCATTER_PADDING.left}
               y1={scaleY(0)}
-              x2={SCATTER_WIDTH - SCATTER_PADDING.right}
+              x2={scatterWidth - SCATTER_PADDING.right}
               y2={scaleY(0)}
               stroke={colors.border}
               strokeWidth={1}
